@@ -1,104 +1,103 @@
 import cv2
-import numpy as np
 import pytesseract
+import numpy as np
 import re
 from pathlib import Path
-import config
 
-if config.TESSERACT_CMD:
-    pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
-
+pytesseract.pytesseract.tesseract_cmd = (
+    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+)
 
 class RedNumberDetector:
-    def __init__(self):
-        self.red_lower_1 = np.array(config.RED_LOWER_1)
-        self.red_upper_1 = np.array(config.RED_UPPER_1)
-        self.red_lower_2 = np.array(config.RED_LOWER_2)
-        self.red_upper_2 = np.array(config.RED_UPPER_2)
-    
-    def detect_red_color(self, image):
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        
-        mask1 = cv2.inRange(hsv, self.red_lower_1, self.red_upper_1)
-        mask2 = cv2.inRange(hsv, self.red_lower_2, self.red_upper_2)
-        
-        red_mask = cv2.bitwise_or(mask1, mask2)
-        
-        kernel = np.ones((3, 3), np.uint8)
-        red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_CLOSE, kernel)
-        red_mask = cv2.morphologyEx(red_mask, cv2.MORPH_OPEN, kernel)
-        
-        return red_mask
-    
-    def extract_numbers_from_roi(self, roi):
-        gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        _, thresh_roi = cv2.threshold(gray_roi, 0, 255, 
-                                      cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        text = pytesseract.image_to_string(thresh_roi, 
-                                          config=config.TESSERACT_CONFIG)
-        
-        text = re.sub(r'\D', '', text)
-        
-        if text and len(text) >= config.MIN_DIGITS:
-            return text
-        return None
-    
-    def extract_red_numbers(self, image_path):
+
+    def __init__(self, debug=False, debug_dir=None):
+        self.debug = debug
+        self.debug_dir = Path(debug_dir) if debug_dir else None
+
+        if self.debug and self.debug_dir:
+            self.debug_dir.mkdir(parents=True, exist_ok=True)
+
+        # OCR SOLO NÚMEROS
+        self.OCR_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789"
+
+    def process(self, image_path: Path):
         image = cv2.imread(str(image_path))
         if image is None:
-            print(f"Error al leer la imagen: {image_path}")
-            return []
-        
-        red_mask = self.detect_red_color(image)
-        contours, _ = cv2.findContours(red_mask, cv2.RETR_EXTERNAL, 
-                                       cv2.CHAIN_APPROX_SIMPLE)
-        
-        numbers = []
-        
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            
-            if w < config.MIN_CONTOUR_WIDTH or h < config.MIN_CONTOUR_HEIGHT:
+            return [], None
+
+        numbers = self._detect_red_numbers(image, image_path.stem)
+
+        print(f"\nIMAGEN: {image_path.name}")
+        print(f"NÚMEROS DETECTADOS: {numbers}")
+
+        # Motor lo dejamos vacío por ahora (lo haremos después bien)
+        return numbers, None
+
+    def _detect_red_numbers(self, image, name):
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        # Rojo tiene dos rangos en HSV
+        lower_red_1 = np.array([0, 120, 120])
+        upper_red_1 = np.array([10, 255, 255])
+
+        lower_red_2 = np.array([170, 120, 120])
+        upper_red_2 = np.array([180, 255, 255])
+
+        mask1 = cv2.inRange(hsv, lower_red_1, upper_red_1)
+        mask2 = cv2.inRange(hsv, lower_red_2, upper_red_2)
+        mask = cv2.bitwise_or(mask1, mask2)
+
+        # Limpieza morfológica (CLAVE)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv2.dilate(mask, kernel, iterations=1)
+
+        if self.debug:
+            cv2.imwrite(str(self.debug_dir / f"{name}_mask.png"), mask)
+
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        detected = set()
+        debug_img = image.copy()
+
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            area = w * h
+
+            # Filtros geométricos afinados para TU imagen
+            if area < 180:
                 continue
-            
-            padding = config.CONTOUR_PADDING
-            x = max(0, x - padding)
-            y = max(0, y - padding)
-            w = min(image.shape[1] - x, w + 2 * padding)
-            h = min(image.shape[0] - y, h + 2 * padding)
-            
-            roi = image[y:y+h, x:x+w]
-            number = self.extract_numbers_from_roi(roi)
-            
-            if number:
-                numbers.append(number)
-        
-        return numbers
-    
-    def process_folder(self, folder_path):
-        folder = Path(folder_path)
-        
-        if not folder.exists():
-            raise FileNotFoundError(f"La carpeta {folder_path} no existe")
-        
-        results = []
-        
-        for image_file in sorted(folder.iterdir()):
-            if image_file.suffix.lower() in config.IMAGE_EXTENSIONS:
-                print(f"Procesando: {image_file.name}")
-                
-                numbers = self.extract_red_numbers(image_file)
-                base_name = image_file.stem
-                
-                if numbers:
-                    for number in numbers:
-                        results.append({
-                            'Archivo': base_name,
-                            'Número': number
-                        })
-                    print(f"  -> Encontrados: {numbers}")
-                else:
-                    print(f"  -> No se encontraron números rojos")
-        
-        return results
+            if w < 18 or h < 12:
+                continue
+            ratio = w / h
+            if ratio < 0.6 or ratio > 6.5:
+                continue
+
+            # Padding GRANDE para no cortar dígitos
+            pad = 12
+            x1 = max(x - pad, 0)
+            y1 = max(y - pad, 0)
+            x2 = min(x + w + pad, image.shape[1])
+            y2 = min(y + h + pad, image.shape[0])
+
+            roi = image[y1:y2, x1:x2]
+
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            gray = cv2.threshold(gray, 0, 255,
+                                  cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
+            text = pytesseract.image_to_string(gray, config=self.OCR_CONFIG)
+            text = text.strip()
+
+            if re.fullmatch(r"\d{3,5}", text):
+                detected.add(text)
+
+                if self.debug:
+                    cv2.rectangle(debug_img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(debug_img, text, (x1, y1 - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+
+        if self.debug:
+            cv2.imwrite(str(self.debug_dir / f"{name}_debug.png"), debug_img)
+
+        return sorted(detected, key=int)

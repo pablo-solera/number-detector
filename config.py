@@ -17,19 +17,20 @@ TESSERACT_CMD = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 # TESSERACT_CMD = None  # Usa el PATH del sistema
 
 # Configuración de detección de color rojo (HSV)
-RED_LOWER_1 = [0, 100, 100]
+# Configuración restrictiva para detectar solo rojos intensos
+RED_LOWER_1 = [0, 120, 120]
 RED_UPPER_1 = [10, 255, 255]
-RED_LOWER_2 = [170, 100, 100]
+RED_LOWER_2 = [170, 120, 120]
 RED_UPPER_2 = [180, 255, 255]
 
 # Configuración de filtrado de contornos
-MIN_CONTOUR_WIDTH = 20
-MIN_CONTOUR_HEIGHT = 20
-CONTOUR_PADDING = 5
+MIN_CONTOUR_WIDTH = 15
+MIN_CONTOUR_HEIGHT = 15
+CONTOUR_PADDING = 10
 
 # Configuración de OCR
-MIN_DIGITS = 2
-TESSERACT_CONFIG = r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789'
+MIN_DIGITS = 1  # Cambiado a 1 para capturar números de 1 dígito también
+TESSERACT_CONFIG = r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789'
 
 # Extensiones de imagen soportadas
 IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']
