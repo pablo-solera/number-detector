@@ -8,6 +8,7 @@ pytesseract.pytesseract.tesseract_cmd = (
     r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 )
 
+
 class RedNumberDetector:
 
     def __init__(self, debug=False, debug_dir=None):
@@ -20,18 +21,91 @@ class RedNumberDetector:
         # OCR SOLO NÚMEROS
         self.OCR_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789"
 
+        # OCR para texto del motor (números, letras, /, :)
+        self.OCR_CONFIG_MOTOR = "--psm 6"
+
     def process(self, image_path: Path):
         image = cv2.imread(str(image_path))
         if image is None:
             return [], None
 
         numbers = self._detect_red_numbers(image, image_path.stem)
+        motor = self._detect_motor(image, image_path.stem)
 
         print(f"\nIMAGEN: {image_path.name}")
         print(f"NÚMEROS DETECTADOS: {numbers}")
+        print(f"MOTOR DETECTADO: {motor}")
 
-        # Motor lo dejamos vacío por ahora (lo haremos después bien)
-        return numbers, None
+        return numbers, motor
+
+    def _detect_motor(self, image, name):
+        """
+        Detecta el código del motor en la parte superior de la imagen
+        Busca patrones como: 1.5/B38A15P
+        """
+        height, width = image.shape[:2]
+
+        # Tomar solo el 20% superior de la imagen (donde está el motor)
+        top_section = image[0:int(height * 0.40), :]
+
+        if self.debug:
+            cv2.imwrite(str(self.debug_dir / f"{name}_motor_region.png"), top_section)
+
+        # Convertir a escala de grises
+        gray = cv2.cvtColor(top_section, cv2.COLOR_BGR2GRAY)
+
+        # Umbralización para texto oscuro sobre fondo claro
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        if self.debug:
+            cv2.imwrite(str(self.debug_dir / f"{name}_motor_thresh.png"), thresh)
+
+        # Buscar regiones con texto (rectángulos con texto potencial)
+        # Primero, dilatar para conectar letras cercanas
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 3))
+        dilated = cv2.dilate(thresh, kernel, iterations=1)
+
+        if self.debug:
+            cv2.imwrite(str(self.debug_dir / f"{name}_motor_dilated.png"), dilated)
+
+        contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        motor_candidates = []
+        debug_img = top_section.copy()
+
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+
+            # Filtrar regiones muy pequeñas o muy grandes
+            if w < 50 or h < 10 or w > width * 0.5 or h > 50:
+                continue
+
+            # Extraer ROI
+            roi = top_section[y:y + h, x:x + w]
+
+            # OCR en la región
+            text = pytesseract.image_to_string(roi, config=self.OCR_CONFIG_MOTOR)
+            text = text.strip().replace('\n', ' ').replace('  ', ' ')
+
+            # Buscar patrón de motor: número.número/LETRAS+NÚMEROS
+            # Ejemplos: 1.5/B38A15P, 2.0/B48A20A, etc.
+            motor_pattern = r'\d+\.\d+/[A-Z0-9]+[A-Z]\d+[A-Z]?'
+            match = re.search(motor_pattern, text)
+
+            if match:
+                motor_code = match.group()
+                motor_candidates.append(motor_code)
+
+                if self.debug:
+                    cv2.rectangle(debug_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                    cv2.putText(debug_img, motor_code, (x, y - 5),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
+        if self.debug:
+            cv2.imwrite(str(self.debug_dir / f"{name}_motor_debug.png"), debug_img)
+
+        # Retornar el primer candidato válido (o None si no se encontró)
+        return motor_candidates[0] if motor_candidates else None
 
     def _detect_red_numbers(self, image, name):
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -47,7 +121,7 @@ class RedNumberDetector:
         mask2 = cv2.inRange(hsv, lower_red_2, upper_red_2)
         mask = cv2.bitwise_or(mask1, mask2)
 
-        # Limpieza morfológica (CLAVE)
+        # Limpieza morfológica
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         mask = cv2.dilate(mask, kernel, iterations=1)
@@ -64,7 +138,7 @@ class RedNumberDetector:
             x, y, w, h = cv2.boundingRect(cnt)
             area = w * h
 
-            # Filtros geométricos afinados para TU imagen
+            # Filtros geométricos
             if area < 180:
                 continue
             if w < 18 or h < 12:
@@ -73,18 +147,20 @@ class RedNumberDetector:
             if ratio < 0.6 or ratio > 6.5:
                 continue
 
-            # Padding GRANDE para no cortar dígitos
-            pad = 12
-            x1 = max(x - pad, 0)
-            y1 = max(y - pad, 0)
-            x2 = min(x + w + pad, image.shape[1])
-            y2 = min(y + h + pad, image.shape[0])
+            # Padding asimétrico
+            pad_horizontal = 19
+            pad_vertical = 12
+
+            x1 = max(x - pad_horizontal, 0)
+            y1 = max(y - pad_vertical, 0)
+            x2 = min(x + w + pad_horizontal, image.shape[1])
+            y2 = min(y + h + pad_vertical, image.shape[0])
 
             roi = image[y1:y2, x1:x2]
 
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
             gray = cv2.threshold(gray, 0, 255,
-                                  cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+                                 cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
             text = pytesseract.image_to_string(gray, config=self.OCR_CONFIG)
             text = text.strip()
