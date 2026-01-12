@@ -80,22 +80,8 @@ Puedes ajustar parámetros en `config.py`:
 
 El Excel generado tendrá el siguiente formato:
 
-| Archivo  | Número |
-|----------|--------|
-| 16_26_1  | 709    |
-| 16_26_1  | 1051   |
-| 16_26_1  | 10635  |
-
-## Solución de Problemas
-
-**No detecta números:**
-- Ajusta los rangos de color rojo en `config.py`
-- Verifica que Tesseract esté correctamente instalado
-
-**Error con Tesseract:**
-- Windows: Configura `TESSERACT_CMD` en `config.py`
-- Linux/Mac: Verifica que tesseract esté en el PATH
-
-## Licencia
-
-MIT
+| Archivo | Número | Motor       |
+|---------|--------|-------------|
+| 16_26_1 | 709    | 1.5/B38A15P |
+| 16_26_1 | 1051   | 1.5/B38A15P |
+| 16_26_1 | 10635  | 1.5/B38A15P |
