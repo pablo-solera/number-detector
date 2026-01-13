@@ -23,18 +23,27 @@ def main():
         if image_path.suffix.lower() not in [".jpg", ".jpeg", ".png"]:
             continue
 
-        numbers, motor = detector.process(image_path)
+        numbers, motors = detector.process(image_path)  # Ahora motors es una lista
 
+        # Si no se detectaron motores, usar lista con "N/A"
+        if not motors:
+            motors = ["N/A"]
+
+        # Generar una fila por cada combinación de número y motor
         for number in numbers:
-            rows.append([
-                image_path.name.split(".")[0],
-                number,
-                motor
-            ])
+            for motor in motors:
+                rows.append([
+                    image_path.name.split(".")[0],
+                    number,
+                    motor
+                ])
 
     exporter.export(rows)
-    print(f"Excel generado correctamente en {OUTPUT_FILE}")
-    print(f"Imágenes de debug en {DEBUG_DIR}")
+    print(f"\n{'='*60}")
+    print(f"✓ Excel generado correctamente en {OUTPUT_FILE}")
+    print(f"📊 Total de filas generadas: {len(rows)}")
+    print(f"🔍 Imágenes de debug en {DEBUG_DIR}")
+    print(f"{'='*60}\n")
 
 
 if __name__ == "__main__":

@@ -27,26 +27,26 @@ class RedNumberDetector:
     def process(self, image_path: Path):
         image = cv2.imread(str(image_path))
         if image is None:
-            return [], None
+            return [], []
 
         numbers = self._detect_red_numbers(image, image_path.stem)
-        motor = self._detect_motor(image, image_path.stem)
+        motors = self._detect_motor(image, image_path.stem)  # Ahora es una lista
 
         print(f"\nIMAGEN: {image_path.name}")
         print(f"NÚMEROS DETECTADOS: {numbers}")
-        print(f"MOTOR DETECTADO: {motor}")
+        print(f"MOTORES DETECTADOS: {motors}")
 
-        return numbers, motor
+        return numbers, motors
 
     def _detect_motor(self, image, name):
         """
-        Detecta el código del motor en la parte superior de la imagen
-        Busca patrones como: 1.5/B38A15P
+        Detecta TODOS los códigos de motor en la parte superior de la imagen
+        Retorna una lista de motores encontrados.
         """
         height, width = image.shape[:2]
 
-        # Tomar solo el 20% superior de la imagen (donde está el motor)
-        top_section = image[0:int(height * 0.40), :]
+        # Tomar solo el 25% superior de la imagen (donde están los motores)
+        top_section = image[0:int(height * 0.90), :]
 
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_motor_region.png"), top_section)
@@ -60,8 +60,7 @@ class RedNumberDetector:
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_motor_thresh.png"), thresh)
 
-        # Buscar regiones con texto (rectángulos con texto potencial)
-        # Primero, dilatar para conectar letras cercanas
+        # Buscar regiones con texto
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 3))
         dilated = cv2.dilate(thresh, kernel, iterations=1)
 
@@ -77,35 +76,81 @@ class RedNumberDetector:
             x, y, w, h = cv2.boundingRect(cnt)
 
             # Filtrar regiones muy pequeñas o muy grandes
-            if w < 50 or h < 10 or w > width * 0.5 or h > 50:
+            if w < 50 or h < 10 or w > width * 0.6 or h > 100:
                 continue
 
-            # Extraer ROI
-            roi = top_section[y:y + h, x:x + w]
+            # Extraer ROI con padding
+            pad = 5
+            x1 = max(x - pad, 0)
+            y1 = max(y - pad, 0)
+            x2 = min(x + w + pad, top_section.shape[1])
+            y2 = min(y + h + pad, top_section.shape[0])
 
-            # OCR en la región
-            text = pytesseract.image_to_string(roi, config=self.OCR_CONFIG_MOTOR)
-            text = text.strip().replace('\n', ' ').replace('  ', ' ')
+            roi = top_section[y1:y2, x1:x2]
 
-            # Buscar patrón de motor: número.número/LETRAS+NÚMEROS
-            # Ejemplos: 1.5/B38A15P, 2.0/B48A20A, etc.
-            motor_pattern = r'\d+\.\d+/[A-Z0-9]+[A-Z]\d+[A-Z]?'
-            match = re.search(motor_pattern, text)
+            # Escalar para mejor OCR
+            roi_scaled = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
-            if match:
-                motor_code = match.group()
-                motor_candidates.append(motor_code)
+            # OCR en la región - MANTENER saltos de línea
+            text = pytesseract.image_to_string(roi_scaled, config=self.OCR_CONFIG_MOTOR)
+            text = text.strip()
 
-                if self.debug:
-                    cv2.rectangle(debug_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                    cv2.putText(debug_img, motor_code, (x, y - 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            if self.debug:
+                print(f"   ROI text RAW:\n{text}\n")
+
+            # Separar por líneas
+            lines = text.split('\n')
+
+            # Construir el código del motor juntando líneas hasta encontrar "kw:"
+            motor_parts = []
+            for line in lines:
+                line = line.strip()
+                # Si la línea contiene "kw:", "idVeic:", o está vacía, parar
+                if not line or 'kw:' in line.lower() or 'idveic' in line.lower() or 'cv:' in line.lower():
+                    break
+                motor_parts.append(line)
+
+            # Unir las partes del motor (sin espacios para mantener formato)
+            motor_text = ''.join(motor_parts)
+
+            if self.debug:
+                print(f"   Motor text joined: '{motor_text}'")
+
+            # Patrones de motor mejorados
+            motor_patterns = [
+                # Patrón complejo con guiones: 1.6/EP6FADTXHPD-5GQ-5G06
+                r'\d+\.\d+/[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+',
+                # Patrón con un guion: 1.6/EP6FADTXHPD-5GQ
+                r'\d+\.\d+/[A-Z0-9]+-[A-Z0-9]+',
+                # Patrón medio: 1.5/B38A15P
+                r'\d+\.\d+/[A-Z][0-9]+[A-Z]+[0-9]*[A-Z]?',
+                # Patrón simple: cualquier combinación
+                r'\d+\.\d+/[A-Z0-9]+',
+            ]
+
+            for motor_pattern in motor_patterns:
+                match = re.search(motor_pattern, motor_text)
+
+                if match:
+                    motor_code = match.group()
+
+                    # Validar que tenga al menos 8 caracteres y no esté duplicado
+                    if len(motor_code) >= 8 and motor_code not in motor_candidates:
+                        motor_candidates.append(motor_code)
+
+                        if self.debug:
+                            cv2.rectangle(debug_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                            cv2.putText(debug_img, motor_code[:20], (x, y - 5),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+
+                    break  # Ya encontró un patrón válido
 
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_motor_debug.png"), debug_img)
+            print(f"   Motor candidates: {motor_candidates}")
 
-        # Retornar el primer candidato válido (o None si no se encontró)
-        return motor_candidates[0] if motor_candidates else None
+        # Retornar TODOS los motores encontrados (o lista vacía)
+        return motor_candidates if motor_candidates else []
 
     def _detect_red_numbers(self, image, name):
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -165,6 +210,11 @@ class RedNumberDetector:
             text = pytesseract.image_to_string(gray, config=self.OCR_CONFIG)
             text = text.strip()
 
+            if not re.fullmatch(r"\d{3,5}", text):
+                inverted = cv2.bitwise_not(gray)
+                text = pytesseract.image_to_string(inverted, config=self.OCR_CONFIG)
+                text = text.strip()
+
             if re.fullmatch(r"\d{3,5}", text):
                 detected.add(text)
 
@@ -175,5 +225,6 @@ class RedNumberDetector:
 
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_debug.png"), debug_img)
+        print(f"   Total números finales: {len(detected)} → {sorted(detected, key=int)}")
 
         return sorted(detected, key=int)
