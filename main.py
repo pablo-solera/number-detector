@@ -27,7 +27,7 @@ def main():
 
         for number in numbers:
             rows.append([
-                image_path.name,
+                image_path.name.split(".")[0],
                 number,
                 motor
             ])
