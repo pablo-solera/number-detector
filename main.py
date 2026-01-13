@@ -27,16 +27,16 @@ def main():
 
         # Si no se detectaron motores, usar lista con "N/A"
         if not motors:
-            motors = ["N/A"]
+            motors = [""]
 
-        # Generar una fila por cada combinación de número y motor
+        # Todos los motores en una celda separados por comas
         for number in numbers:
-            for motor in motors:
-                rows.append([
-                    image_path.name.split(".")[0],
-                    number,
-                    motor
-                ])
+            motor_str = ", ".join(motors) if motors else "N/A"
+            rows.append([
+                image_path.name.split(".")[0],
+                number,
+                motor_str
+            ])
 
     exporter.export(rows)
     print(f"\n{'='*60}")
