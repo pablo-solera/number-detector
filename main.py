@@ -1,48 +1,87 @@
 from pathlib import Path
 from src import RedNumberDetector, ExcelExporter
+import argparse
 
 BASE_DIR = Path(__file__).parent
-INPUT_DIR = BASE_DIR / "input"
-OUTPUT_DIR = BASE_DIR / "output"
-DEBUG_DIR = OUTPUT_DIR / "debug"
-OUTPUT_FILE = OUTPUT_DIR / "numeros_rojos.xlsx"
+DEFAULT_INPUT_DIR = BASE_DIR / "input"
+DEFAULT_OUTPUT_FILE = BASE_DIR / "output" / "numeros_rojos.xlsx"
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Detector de números rojos en esquemas BMW"
+    )
+
+    parser.add_argument(
+        "-i", "--input",
+        type=Path,
+        default=DEFAULT_INPUT_DIR,
+        help=f"Directorio con imágenes a procesar (por defecto: {DEFAULT_INPUT_DIR})"
+    )
+
+    parser.add_argument(
+        "-o", "--output",
+        type=Path,
+        default=DEFAULT_OUTPUT_FILE,
+        help=f"Archivo Excel de salida (por defecto: {DEFAULT_OUTPUT_FILE})"
+    )
+
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Guardar imágenes de debug"
+    )
+
+    return parser.parse_args()
 
 
 def main():
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    args = parse_args()
+
+    input_dir = args.input
+    output_file = args.output
+    debug = args.debug
+
+    output_dir = output_file.parent
+    debug_dir = output_dir / "debug"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    if debug:
+        debug_dir.mkdir(parents=True, exist_ok=True)
 
     detector = RedNumberDetector(
-        debug=True,
-        debug_dir=DEBUG_DIR
+        debug=debug,
+        debug_dir=debug_dir if debug else None
     )
-    exporter = ExcelExporter(OUTPUT_FILE)
 
+    exporter = ExcelExporter(output_file)
     rows = []
 
-    for image_path in INPUT_DIR.iterdir():
+    for image_path in input_dir.iterdir():
         if image_path.suffix.lower() not in [".jpg", ".jpeg", ".png"]:
             continue
 
-        numbers, motors = detector.process(image_path)  # Ahora motors es una lista
+        numbers, motors = detector.process(image_path)
 
-        # Si no se detectaron motores, usar lista con "N/A"
         if not motors:
             motors = [""]
 
-        # Todos los motores en una celda separados por comas
+        motor_str = ", ".join(motors)
+
         for number in numbers:
-            motor_str = ", ".join(motors) if motors else "N/A"
             rows.append([
-                image_path.name.split(".")[0],
+                image_path.stem,
                 number,
                 motor_str
             ])
 
     exporter.export(rows)
+
     print(f"\n{'='*60}")
-    print(f"✓ Excel generado correctamente en {OUTPUT_FILE}")
+    print(f"✓ Excel generado correctamente en {output_file}")
     print(f"📊 Total de filas generadas: {len(rows)}")
-    print(f"🔍 Imágenes de debug en {DEBUG_DIR}")
+    if debug:
+        print(f"🔍 Imágenes de debug en {debug_dir}")
     print(f"{'='*60}\n")
 
 
