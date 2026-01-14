@@ -1,5 +1,5 @@
 """
-Script de diagnóstico para visualizar la detección de números rojos
+Script de diagnóstico para visualizar la detección de números rojos y motores
 Guarda en: red-number-detector/diagnostic.py
 """
 
@@ -7,170 +7,233 @@ import cv2
 import numpy as np
 import pytesseract
 from pathlib import Path
-import config
+import re
 
-if config.TESSERACT_CMD:
-    pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
 def visualize_red_detection(image_path, output_folder='output/diagnostic'):
     """
     Visualiza paso a paso la detección de números rojos
     """
-    # Crear carpeta de salida
     output_path = Path(output_folder)
     output_path.mkdir(parents=True, exist_ok=True)
-    
-    # Leer imagen
+
     image = cv2.imread(str(image_path))
     if image is None:
         print(f"❌ Error al leer la imagen: {image_path}")
         return
-    
+
     print(f"\n{'='*60}")
     print(f"📸 Procesando: {Path(image_path).name}")
     print(f"{'='*60}")
-    
-    # 1. Mostrar imagen original
-    original_copy = image.copy()
-    
-    # 2. Convertir a HSV
+
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    
-    # 3. Crear máscaras de rojo con DIFERENTES rangos para probar
-    print("\n🔍 Probando diferentes rangos de detección de rojo:")
-    
-    # Rango 1: Muy permisivo (detecta más rojos)
-    lower_red1_loose = np.array([0, 30, 30])
-    upper_red1_loose = np.array([10, 255, 255])
-    lower_red2_loose = np.array([170, 30, 30])
-    upper_red2_loose = np.array([180, 255, 255])
-    
-    mask1_loose = cv2.inRange(hsv, lower_red1_loose, upper_red1_loose)
-    mask2_loose = cv2.inRange(hsv, lower_red2_loose, upper_red2_loose)
-    red_mask_loose = cv2.bitwise_or(mask1_loose, mask2_loose)
-    
-    # Rango 2: Configuración actual
-    lower_red1 = np.array(config.RED_LOWER_1)
-    upper_red1 = np.array(config.RED_UPPER_1)
-    lower_red2 = np.array(config.RED_LOWER_2)
-    upper_red2 = np.array(config.RED_UPPER_2)
-    
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    red_mask_current = cv2.bitwise_or(mask1, mask2)
-    
-    # Rango 3: Más restrictivo
-    lower_red1_strict = np.array([0, 120, 120])
-    upper_red1_strict = np.array([10, 255, 255])
-    lower_red2_strict = np.array([170, 120, 120])
-    upper_red2_strict = np.array([180, 255, 255])
-    
-    mask1_strict = cv2.inRange(hsv, lower_red1_strict, upper_red1_strict)
-    mask2_strict = cv2.inRange(hsv, lower_red2_strict, upper_red2_strict)
-    red_mask_strict = cv2.bitwise_or(mask1_strict, mask2_strict)
-    
-    # Aplicar operaciones morfológicas
-    kernel = np.ones((3, 3), np.uint8)
-    
-    red_mask_loose = cv2.morphologyEx(red_mask_loose, cv2.MORPH_CLOSE, kernel)
-    red_mask_loose = cv2.morphologyEx(red_mask_loose, cv2.MORPH_OPEN, kernel)
-    
-    red_mask_current = cv2.morphologyEx(red_mask_current, cv2.MORPH_CLOSE, kernel)
-    red_mask_current = cv2.morphologyEx(red_mask_current, cv2.MORPH_OPEN, kernel)
-    
-    red_mask_strict = cv2.morphologyEx(red_mask_strict, cv2.MORPH_CLOSE, kernel)
-    red_mask_strict = cv2.morphologyEx(red_mask_strict, cv2.MORPH_OPEN, kernel)
-    
-    # Guardar máscaras
-    base_name = Path(image_path).stem
-    cv2.imwrite(str(output_path / f"{base_name}_1_mask_loose.jpg"), red_mask_loose)
-    cv2.imwrite(str(output_path / f"{base_name}_2_mask_current.jpg"), red_mask_current)
-    cv2.imwrite(str(output_path / f"{base_name}_3_mask_strict.jpg"), red_mask_strict)
-    
-    print(f"   ✅ Máscaras guardadas en: {output_path}")
-    
-    # 4. Detectar y procesar contornos para cada máscara
-    masks_info = [
-        ("Permisivo [30-255]", red_mask_loose, (0, 255, 0)),
-        ("Actual [50-255]", red_mask_current, (255, 165, 0)),
-        ("Restrictivo [120-255]", red_mask_strict, (0, 0, 255))
+
+    # Definir 5 rangos diferentes para probar
+    ranges = [
+        ("Muy Permisivo [20-255]", [0, 20, 20], [10, 255, 255], [170, 20, 20], [180, 255, 255], (0, 255, 0)),
+        ("Permisivo [50-255]", [0, 50, 50], [10, 255, 255], [170, 50, 50], [180, 255, 255], (0, 200, 200)),
+        ("Medio [80-255]", [0, 80, 80], [10, 255, 255], [170, 80, 80], [180, 255, 255], (255, 165, 0)),
+        ("Restrictivo [120-255]", [0, 120, 120], [10, 255, 255], [170, 120, 120], [180, 255, 255], (255, 0, 0)),
+        ("Muy Restrictivo [150-255]", [0, 150, 150], [10, 255, 255], [170, 150, 150], [180, 255, 255], (0, 0, 255))
     ]
-    
-    for mask_name, mask, color in masks_info:
-        print(f"\n📊 Rango {mask_name}:")
-        
+
+    print("\n🔍 Probando diferentes rangos de detección de rojo:\n")
+
+    base_name = Path(image_path).stem
+    all_results = []
+
+    for idx, (name, lower1, upper1, lower2, upper2, color) in enumerate(ranges):
+        print(f"📊 Rango {idx+1}: {name}")
+
+        # Crear máscaras
+        mask1 = cv2.inRange(hsv, np.array(lower1), np.array(upper1))
+        mask2 = cv2.inRange(hsv, np.array(lower2), np.array(upper2))
+        mask = cv2.bitwise_or(mask1, mask2)
+
+        # Operaciones morfológicas
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv2.dilate(mask, kernel, iterations=1)
+
+        # Guardar máscara
+        cv2.imwrite(str(output_path / f"{base_name}_{idx+1}_mask_{name.split()[0]}.jpg"), mask)
+
+        # Detectar contornos
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         print(f"   Contornos encontrados: {len(contours)}")
-        
+
         image_with_boxes = image.copy()
         numbers_found = []
-        
-        for idx, contour in enumerate(contours):
+
+        for cnt_idx, contour in enumerate(contours):
             x, y, w, h = cv2.boundingRect(contour)
-            area = cv2.contourArea(contour)
-            
-            # Mostrar TODOS los contornos encontrados
-            cv2.rectangle(image_with_boxes, (x, y), (x+w, y+h), color, 2)
-            cv2.putText(image_with_boxes, f"{idx}", (x, y-5), 
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-            
-            # Filtrar por tamaño mínimo
-            if w < config.MIN_CONTOUR_WIDTH or h < config.MIN_CONTOUR_HEIGHT:
-                print(f"   [{idx}] Descartado por tamaño: {w}x{h} (área: {area:.0f})")
+            area = w * h
+
+            # Filtros geométricos
+            if area < 180 or w < 18 or h < 12:
                 continue
-            
-            print(f"   [{idx}] Contorno válido: {w}x{h} (área: {area:.0f})")
-            
-            # Expandir área
-            padding = config.CONTOUR_PADDING
-            x_pad = max(0, x - padding)
-            y_pad = max(0, y - padding)
-            w_pad = min(image.shape[1] - x_pad, w + 2 * padding)
-            h_pad = min(image.shape[0] - y_pad, h + 2 * padding)
-            
-            # Extraer ROI
-            roi = image[y_pad:y_pad+h_pad, x_pad:x_pad+w_pad]
-            
-            # Guardar ROI
-            roi_path = output_path / f"{base_name}_{mask_name.split()[0]}_roi_{idx}.jpg"
-            cv2.imwrite(str(roi_path), roi)
-            
+
+            ratio = w / h
+            if ratio < 0.6 or ratio > 6.5:
+                continue
+
+            # Padding
+            pad_h, pad_v = 19, 12
+            x1 = max(x - pad_h, 0)
+            y1 = max(y - pad_v, 0)
+            x2 = min(x + w + pad_h, image.shape[1])
+            y2 = min(y + h + pad_v, image.shape[0])
+
+            roi = image[y1:y2, x1:x2]
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+
             # OCR
-            gray_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            _, thresh_roi = cv2.threshold(gray_roi, 0, 255, 
-                                         cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            
-            # Probar diferentes configuraciones de Tesseract
-            configs = [
-                ('PSM 6', r'--oem 3 --psm 6 -c tessedit_char_whitelist=0123456789'),
-                ('PSM 7', r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789'),
-                ('PSM 8', r'--oem 3 --psm 8 -c tessedit_char_whitelist=0123456789'),
-            ]
-            
-            for config_name, tesseract_config in configs:
-                text = pytesseract.image_to_string(thresh_roi, config=tesseract_config)
-                text = ''.join(filter(str.isdigit, text))
-                
-                if text and len(text) >= config.MIN_DIGITS:
-                    print(f"       OCR {config_name}: '{text}' ✓")
-                    numbers_found.append(text)
-                    break
-            else:
-                print(f"       OCR: No se detectó número válido")
-        
+            text = pytesseract.image_to_string(thresh, config="--psm 7 -c tessedit_char_whitelist=0123456789")
+            text = text.strip()
+
+            if re.fullmatch(r"\d{3,5}", text):
+                numbers_found.append(text)
+                cv2.rectangle(image_with_boxes, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(image_with_boxes, text, (x1, y1 - 5),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
         # Guardar imagen con cajas
-        output_file = output_path / f"{base_name}_4_{mask_name.split()[0]}_boxes.jpg"
-        cv2.imwrite(str(output_file), image_with_boxes)
-        
-        if numbers_found:
-            print(f"   ✅ Números detectados: {numbers_found}")
-        else:
-            print(f"   ⚠️  No se detectaron números válidos")
-    
+        cv2.imwrite(str(output_path / f"{base_name}_{idx+1}_boxes_{name.split()[0]}.jpg"), image_with_boxes)
+
+        numbers_sorted = sorted(set(numbers_found), key=int) if numbers_found else []
+        print(f"   ✅ Números detectados: {numbers_sorted}\n")
+
+        all_results.append({
+            'name': name,
+            'numbers': numbers_sorted,
+            'count': len(numbers_sorted)
+        })
+
+    # Resumen
+    print(f"{'='*60}")
+    print("📈 RESUMEN DE RESULTADOS:")
+    print(f"{'='*60}")
+    for idx, result in enumerate(all_results):
+        print(f"{idx+1}. {result['name']}: {result['count']} números → {result['numbers']}")
+    print(f"{'='*60}\n")
+
+
+def visualize_motor_detection(image_path, output_folder='output/diagnostic'):
+    """
+    Visualiza la detección de motores en la imagen
+    """
+    output_path = Path(output_folder)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    image = cv2.imread(str(image_path))
+    if image is None:
+        print(f"❌ Error al leer la imagen: {image_path}")
+        return
+
     print(f"\n{'='*60}")
-    print(f"✅ Diagnóstico completado")
-    print(f"📁 Archivos guardados en: {output_path}/")
+    print(f"🚗 DETECCIÓN DE MOTORES: {Path(image_path).name}")
+    print(f"{'='*60}\n")
+
+    height, width = image.shape[:2]
+    base_name = Path(image_path).stem
+
+    # Probar diferentes porcentajes de la imagen
+    percentages = [0.9]
+
+    for pct in percentages:
+        print(f"📊 Analizando {int(pct*100)}% superior de la imagen:")
+
+        top_section = image[0:int(height * pct), :]
+
+        # Guardar región
+        cv2.imwrite(str(output_path / f"{base_name}_motor_region_{int(pct*100)}pct.jpg"), top_section)
+
+        # Convertir a gris y umbralizar
+        gray = cv2.cvtColor(top_section, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        # Guardar umbralización
+        cv2.imwrite(str(output_path / f"{base_name}_motor_thresh_{int(pct*100)}pct.jpg"), thresh)
+
+        # Dilatar
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 3))
+        dilated = cv2.dilate(thresh, kernel, iterations=1)
+
+        # Guardar dilatado
+        cv2.imwrite(str(output_path / f"{base_name}_motor_dilated_{int(pct*100)}pct.jpg"), dilated)
+
+        # Detectar contornos
+        contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        print(f"   Contornos encontrados: {len(contours)}")
+
+        debug_img = top_section.copy()
+        motors_found = []
+
+        for cnt_idx, cnt in enumerate(contours):
+            x, y, w, h = cv2.boundingRect(cnt)
+
+            # Filtros
+            if w < 50 or h < 10 or w > width * 0.6 or h > 100:
+                continue
+
+            # ROI con padding
+            pad = 5
+            x1 = max(x - pad, 0)
+            y1 = max(y - pad, 0)
+            x2 = min(x + w + pad, top_section.shape[1])
+            y2 = min(y + h + pad, top_section.shape[0])
+
+            roi = top_section[y1:y2, x1:x2]
+
+            # Escalar para mejor OCR
+            roi_scaled = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+
+            # OCR
+            text = pytesseract.image_to_string(roi_scaled, config="--psm 6")
+            text = text.strip()
+
+            print(f"   [{cnt_idx}] ROI text: {repr(text[:100])}")
+
+            # Separar por líneas y construir motor
+            lines = text.split('\n')
+            motor_parts = []
+            for line in lines:
+                line = line.strip()
+                if not line or 'kw:' in line.lower() or 'idveic' in line.lower() or 'cv:' in line.lower():
+                    break
+                motor_parts.append(line)
+
+            motor_text = ''.join(motor_parts)
+
+            # Patrones de motor
+            motor_patterns = [
+                r'\d+\.\d+/[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+',
+                r'\d+\.\d+/[A-Z0-9]+-[A-Z0-9]+',
+                r'\d+\.\d+/[A-Z][0-9]+[A-Z]+[0-9]*[A-Z]?',
+                r'\d+\.\d+/[A-Z0-9]+',
+            ]
+
+            for pattern in motor_patterns:
+                match = re.search(pattern, motor_text)
+                if match:
+                    motor_code = match.group()
+                    if len(motor_code) >= 8 and motor_code not in motors_found:
+                        motors_found.append(motor_code)
+                        print(f"       ✓ Motor detectado: {motor_code}")
+
+                        cv2.rectangle(debug_img, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                        cv2.putText(debug_img, motor_code[:20], (x, y-5),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
+                    break
+
+        # Guardar debug
+        cv2.imwrite(str(output_path / f"{base_name}_motor_boxes_{int(pct*100)}pct.jpg"), debug_img)
+
+        print(f"   ✅ Motores encontrados: {motors_found}\n")
+
     print(f"{'='*60}\n")
 
 
@@ -179,45 +242,51 @@ def analyze_folder(folder_path='input', output_folder='output/diagnostic'):
     Analiza todas las imágenes de una carpeta
     """
     folder = Path(folder_path)
-    
+
     if not folder.exists():
         print(f"❌ La carpeta {folder_path} no existe")
         return
-    
+
     # Obtener todas las imágenes
+    image_extensions = ['.jpg', '.jpeg', '.png', '.bmp']
     images = []
-    for ext in config.IMAGE_EXTENSIONS:
+    for ext in image_extensions:
         images.extend(folder.glob(f"*{ext}"))
-    
+
     if not images:
-        print(f"⚠️  No se encontraron imágenes en {folder_path}")
+        print(f"⚠️ No se encontraron imágenes en {folder_path}")
         return
-    
-    print(f"\n🔬 DIAGNÓSTICO DE DETECCIÓN DE NÚMEROS ROJOS")
+
+    print(f"\n🔬 DIAGNÓSTICO COMPLETO")
     print(f"📁 Carpeta: {folder_path}")
-    print(f"🖼️  Imágenes encontradas: {len(images)}\n")
-    
+    print(f"🖼️ Imágenes encontradas: {len(images)}\n")
+
     for image_path in sorted(images):
+        # Analizar números rojos
         visualize_red_detection(image_path, output_folder)
-    
+
+        # Analizar motores
+        visualize_motor_detection(image_path, output_folder)
+
     print(f"\n{'='*70}")
     print(f"🎯 INSTRUCCIONES:")
     print(f"{'='*70}")
     print(f"1. Revisa las imágenes en: {output_folder}/")
-    print(f"2. Busca el archivo *_mask_*.jpg que mejor detecte los números rojos")
-    print(f"3. Busca el archivo *_boxes.jpg para ver las cajas detectadas")
-    print(f"4. Si 'Permisivo' detecta los números, actualiza config.py con:")
-    print(f"   RED_LOWER_1 = [0, 30, 30]")
-    print(f"   RED_LOWER_2 = [170, 30, 30]")
-    print(f"5. Si 'Restrictivo' funciona mejor, usa:")
-    print(f"   RED_LOWER_1 = [0, 120, 120]")
-    print(f"   RED_LOWER_2 = [170, 120, 120]")
+    print(f"2. Para NÚMEROS ROJOS:")
+    print(f"   - Busca *_mask_*.jpg para ver qué rango detecta mejor")
+    print(f"   - Busca *_boxes_*.jpg para ver las cajas sobre los números")
+    print(f"3. Para MOTORES:")
+    print(f"   - Busca *_motor_region_*.jpg para ver la zona analizada")
+    print(f"   - Busca *_motor_boxes_*.jpg para ver los motores detectados")
+    print(f"   - Prueba diferentes porcentajes (15%, 20%, 25%, etc.)")
+    print(f"4. Ajusta config.py o detector.py según los mejores resultados")
     print(f"{'='*70}\n")
 
 
 if __name__ == "__main__":
     # Analizar todas las imágenes
     analyze_folder('input', 'output/diagnostic')
-    
+
     # O analizar una imagen específica:
-    # visualize_red_detection('input/16_26_1.jpg', 'output/diagnostic')
+    # visualize_red_detection('input/508.jpg', 'output/diagnostic')
+    # visualize_motor_detection('input/508.jpg', 'output/diagnostic')
