@@ -1,88 +1,67 @@
 from pathlib import Path
 from src import RedNumberDetector, ExcelExporter
-import argparse
+import time
 
 BASE_DIR = Path(__file__).parent
-DEFAULT_INPUT_DIR = BASE_DIR / "input"
-DEFAULT_OUTPUT_FILE = BASE_DIR / "output" / "numeros_rojos.xlsx"
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Detector de números rojos en esquemas BMW"
-    )
-
-    parser.add_argument(
-        "-i", "--input",
-        type=Path,
-        default=DEFAULT_INPUT_DIR,
-        help=f"Directorio con imágenes a procesar (por defecto: {DEFAULT_INPUT_DIR})"
-    )
-
-    parser.add_argument(
-        "-o", "--output",
-        type=Path,
-        default=DEFAULT_OUTPUT_FILE,
-        help=f"Archivo Excel de salida (por defecto: {DEFAULT_OUTPUT_FILE})"
-    )
-
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Guardar imágenes de debug"
-    )
-
-    return parser.parse_args()
+INPUT_DIR = BASE_DIR / "input"
+OUTPUT_DIR = BASE_DIR / "output"
+DEBUG_DIR = OUTPUT_DIR / "debug"
+OUTPUT_FILE = OUTPUT_DIR / "numeros_rojos.xlsx"
 
 
 def main():
-    args = parse_args()
+    OUTPUT_DIR.mkdir(exist_ok=True)
 
-    input_dir = args.input
-    output_file = args.output
-    debug = args.debug
+    # Obtener todas las imagenes
+    image_paths = []
+    for ext in [".jpg", ".jpeg", ".png"]:
+        image_paths.extend(INPUT_DIR.glob(f"*{ext}"))
 
-    output_dir = output_file.parent
-    debug_dir = output_dir / "debug"
+    if not image_paths:
+        print("No se encontraron imagenes en input/")
+        return
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    if debug:
-        debug_dir.mkdir(parents=True, exist_ok=True)
+    print(f"\nTotal de imagenes encontradas: {len(image_paths)}")
 
-    detector = RedNumberDetector(
-        debug=debug,
-        debug_dir=debug_dir if debug else None
-    )
+    # Crear detector
+    detector = RedNumberDetector(debug=False, debug_dir=DEBUG_DIR)
 
-    exporter = ExcelExporter(output_file)
+    # Procesar en paralelo
+    start_time = time.time()
+
+    # max_workers=None usa todos los CPUs disponibles
+    # Puedes ajustar a un numero especifico: max_workers=4
+    results = detector.process_batch(image_paths, max_workers=None)
+
+    elapsed_time = time.time() - start_time
+
+    # Preparar datos para Excel
     rows = []
-
-    for image_path in input_dir.iterdir():
-        if image_path.suffix.lower() not in [".jpg", ".jpeg", ".png"]:
-            continue
-
-        numbers, motors = detector.process(image_path)
-
+    for image_path, (numbers, motors) in results.items():
         if not motors:
             motors = [""]
 
-        motor_str = ", ".join(motors)
-
         for number in numbers:
-            rows.append([
-                image_path.stem,
-                number,
-                motor_str
-            ])
+            for motor in motors:
+                rows.append([
+                    image_path.stem,
+                    number,
+                    motor
+                ])
 
+    # Exportar a Excel
+    exporter = ExcelExporter(OUTPUT_FILE)
     exporter.export(rows)
 
-    print(f"\n{'='*60}")
-    print(f"✓ Excel generado correctamente en {output_file}")
-    print(f"📊 Total de filas generadas: {len(rows)}")
-    if debug:
-        print(f"🔍 Imágenes de debug en {debug_dir}")
-    print(f"{'='*60}\n")
+    print(f"\n{'=' * 70}")
+    print(f"RESUMEN FINAL")
+    print(f"{'=' * 70}")
+    print(f"Tiempo total: {elapsed_time:.2f} segundos")
+    print(f"Imagenes procesadas: {len(results)}")
+    print(f"Tiempo promedio por imagen: {elapsed_time / len(results):.2f}s")
+    print(f"Filas generadas en Excel: {len(rows)}")
+    print(f"Excel generado: {OUTPUT_FILE}")
+    print(f"{'=' * 70}\n")
 
 
 if __name__ == "__main__":
