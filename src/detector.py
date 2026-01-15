@@ -110,7 +110,7 @@ class RedNumberDetector:
         height, width = image.shape[:2]
 
         # Tomar solo el 25% superior de la imagen
-        top_section = image[0:int(height * 0.25), :]
+        top_section = image[0:int(height * 0.90), :]
 
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_motor_region.png"), top_section)
