@@ -1,14 +1,13 @@
 import cv2
 import pytesseract
-import numpy as np
 import re
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import cpu_count
+import config
+from numpy import array
 
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+pytesseract.pytesseract.tesseract_cmd = config.TESSERACT_CMD
 
 
 class RedNumberDetector:
@@ -21,10 +20,8 @@ class RedNumberDetector:
             self.debug_dir.mkdir(parents=True, exist_ok=True)
 
         # OCR SOLO NUMEROS
-        self.OCR_CONFIG = "--psm 7 -c tessedit_char_whitelist=0123456789"
-
-        # OCR para texto del motor
-        self.OCR_CONFIG_MOTOR = "--psm 6"
+        self.OCR_CONFIG = config.OCR_CONFIG_NUMBERS
+        self.OCR_CONFIG_MOTOR = config.OCR_CONFIG_MOTOR
 
     def process(self, image_path: Path):
         """Procesa una sola imagen"""
@@ -35,17 +32,16 @@ class RedNumberDetector:
         numbers = self._detect_red_numbers(image, image_path.stem)
         motors = self._detect_motor(image, image_path.stem)
 
-        print(f"\n[{image_path.name}] Numeros: {len(numbers)} | Motores: {len(motors)}")
-
         return numbers, motors
 
-    def process_batch(self, image_paths, max_workers=None):
+    def process_batch(self, image_paths, max_workers=None, progress_callback=None):
         """
         Procesa multiples imagenes en paralelo
 
         Args:
             image_paths: Lista de Path de imagenes
             max_workers: Numero de procesos paralelos (None = usar todos los CPUs)
+            progress_callback: Funcion callback(current, total, image_name) para reportar progreso
 
         Returns:
             dict: {image_path: (numbers, motors)}
@@ -53,14 +49,8 @@ class RedNumberDetector:
         if max_workers is None:
             max_workers = cpu_count()
 
-        print(f"\n{'=' * 70}")
-        print(f"PROCESAMIENTO EN PARALELO")
-        print(f"{'=' * 70}")
-        print(f"Imagenes a procesar: {len(image_paths)}")
-        print(f"Procesos paralelos: {max_workers}")
-        print(f"{'=' * 70}\n")
-
         results = {}
+        total = len(image_paths)
 
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             # Enviar todas las tareas
@@ -78,19 +68,17 @@ class RedNumberDetector:
                     results[image_path] = (numbers, motors)
                     completed += 1
 
-                    # Mostrar progreso
-                    if completed % 10 == 0 or completed == len(image_paths):
-                        progress = (completed / len(image_paths)) * 100
-                        print(f"Progreso: {completed}/{len(image_paths)} ({progress:.1f}%)")
+                    # Llamar callback de progreso si existe
+                    if progress_callback:
+                        progress_callback(completed, total, image_path.name)
 
                 except Exception as e:
                     print(f"Error procesando {image_path.name}: {e}")
                     results[image_path] = ([], [])
+                    completed += 1
 
-        print(f"\n{'=' * 70}")
-        print(f"PROCESAMIENTO COMPLETADO")
-        print(f"Imagenes procesadas exitosamente: {len(results)}")
-        print(f"{'=' * 70}\n")
+                    if progress_callback:
+                        progress_callback(completed, total, image_path.name)
 
         return results
 
@@ -98,33 +86,25 @@ class RedNumberDetector:
     def _process_single(image_path):
         """
         Funcion estatica para procesamiento paralelo
-        (necesaria para que ProcessPoolExecutor funcione)
         """
         detector = RedNumberDetector(debug=False, debug_dir=None)
         return detector.process(image_path)
 
     def _detect_motor(self, image, name):
-        """
-        Detecta TODOS los codigos de motor en la parte superior de la imagen
-        """
+        """Detecta TODOS los codigos de motor"""
         height, width = image.shape[:2]
 
-        # Tomar solo el 25% superior de la imagen
-        top_section = image[0:int(height * 0.90), :]
+        top_section = image[0:int(height * config.MOTOR_TOP_SECTION_PCT), :]
 
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_motor_region.png"), top_section)
 
-        # Convertir a escala de grises
         gray = cv2.cvtColor(top_section, cv2.COLOR_BGR2GRAY)
-
-        # Umbralizacion
         _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
         if self.debug:
             cv2.imwrite(str(self.debug_dir / f"{name}_motor_thresh.png"), thresh)
 
-        # Buscar regiones con texto
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (20, 3))
         dilated = cv2.dilate(thresh, kernel, iterations=1)
 
@@ -139,11 +119,10 @@ class RedNumberDetector:
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
 
-            # Filtros
-            if w < 50 or h < 10 or w > width * 0.6 or h > 100:
+            if w < config.MOTOR_MIN_WIDTH or h < config.MOTOR_MIN_HEIGHT or \
+                    w > width * 0.6 or h > config.MOTOR_MAX_HEIGHT:
                 continue
 
-            # ROI con padding
             pad = 5
             x1 = max(x - pad, 0)
             y1 = max(y - pad, 0)
@@ -151,21 +130,15 @@ class RedNumberDetector:
             y2 = min(y + h + pad, top_section.shape[0])
 
             roi = top_section[y1:y2, x1:x2]
-
-            # Escalar para mejor OCR
             roi_scaled = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
 
-            # OCR
             text = pytesseract.image_to_string(roi_scaled, config=self.OCR_CONFIG_MOTOR)
             text = text.strip()
 
             if self.debug:
                 print(f"   ROI text RAW:\n{text}\n")
 
-            # Separar por lineas
             lines = text.split('\n')
-
-            # Construir el codigo del motor
             motor_parts = []
             for line in lines:
                 line = line.strip()
@@ -178,28 +151,19 @@ class RedNumberDetector:
             if self.debug:
                 print(f"   Motor text joined: '{motor_text}'")
 
-            # Patrones de motor
-            motor_patterns = [
-                r'\d+\.\d+/[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+',
-                r'\d+\.\d+/[A-Z0-9]+-[A-Z0-9]+',
-                r'\d+\.\d+/[A-Z][0-9]+[A-Z]+[0-9]*[A-Z]?',
-                r'\d+\.\d+/[A-Z0-9]+',
-            ]
-
-            for motor_pattern in motor_patterns:
+            for motor_pattern in config.MOTOR_PATTERNS:
                 match = re.search(motor_pattern, motor_text)
 
                 if match:
                     motor_code = match.group()
 
-                    if len(motor_code) >= 8 and motor_code not in motor_candidates:
+                    if len(motor_code) >= config.MOTOR_MIN_LENGTH and motor_code not in motor_candidates:
                         motor_candidates.append(motor_code)
 
                         if self.debug:
                             cv2.rectangle(debug_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
                             cv2.putText(debug_img, motor_code[:20], (x, y - 5),
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 0), 1)
-
                     break
 
         if self.debug:
@@ -211,18 +175,15 @@ class RedNumberDetector:
     def _detect_red_numbers(self, image, name):
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-        # VALORES MUY RESTRICTIVOS (solo rojos muy intensos)
-        lower_red_1 = np.array([0, 150, 150])
-        upper_red_1 = np.array([10, 255, 255])
-
-        lower_red_2 = np.array([170, 150, 150])
-        upper_red_2 = np.array([180, 255, 255])
+        lower_red_1 = array(config.RED_LOWER_1)
+        upper_red_1 = array(config.RED_UPPER_1)
+        lower_red_2 = array(config.RED_LOWER_2)
+        upper_red_2 = array(config.RED_UPPER_2)
 
         mask1 = cv2.inRange(hsv, lower_red_1, upper_red_1)
         mask2 = cv2.inRange(hsv, lower_red_2, upper_red_2)
         mask = cv2.bitwise_or(mask1, mask2)
 
-        # Limpieza morfologica
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
         mask = cv2.dilate(mask, kernel, iterations=1)
@@ -239,39 +200,33 @@ class RedNumberDetector:
             x, y, w, h = cv2.boundingRect(cnt)
             area = w * h
 
-            # Filtros geometricos
-            if area < 180:
+            if area < config.MIN_CONTOUR_AREA:
                 continue
-            if w < 18 or h < 12:
+            if w < config.MIN_CONTOUR_WIDTH or h < config.MIN_CONTOUR_HEIGHT:
                 continue
             ratio = w / h
-            if ratio < 0.6 or ratio > 6.5:
+            if ratio < config.MIN_ASPECT_RATIO or ratio > config.MAX_ASPECT_RATIO:
                 continue
 
-            # Padding asimetrico
-            pad_horizontal = 19
-            pad_vertical = 12
-
-            x1 = max(x - pad_horizontal, 0)
-            y1 = max(y - pad_vertical, 0)
-            x2 = min(x + w + pad_horizontal, image.shape[1])
-            y2 = min(y + h + pad_vertical, image.shape[0])
+            x1 = max(x - config.PADDING_HORIZONTAL, 0)
+            y1 = max(y - config.PADDING_VERTICAL, 0)
+            x2 = min(x + w + config.PADDING_HORIZONTAL, image.shape[1])
+            y2 = min(y + h + config.PADDING_VERTICAL, image.shape[0])
 
             roi = image[y1:y2, x1:x2]
 
             gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            gray = cv2.threshold(gray, 0, 255,
-                                 cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+            gray = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
             text = pytesseract.image_to_string(gray, config=self.OCR_CONFIG)
             text = text.strip()
 
-            if not re.fullmatch(r"\d{3,5}", text):
+            if not re.fullmatch(rf"\d{{{config.MIN_DIGITS},{config.MAX_DIGITS}}}", text):
                 inverted = cv2.bitwise_not(gray)
                 text = pytesseract.image_to_string(inverted, config=self.OCR_CONFIG)
                 text = text.strip()
 
-            if re.fullmatch(r"\d{3,5}", text):
+            if re.fullmatch(rf"\d{{{config.MIN_DIGITS},{config.MAX_DIGITS}}}", text):
                 detected.add(text)
 
                 if self.debug:
