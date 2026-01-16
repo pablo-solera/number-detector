@@ -2,23 +2,6 @@
 
 Script en Python que detecta números en color rojo dentro de imágenes y los exporta a un archivo Excel.
 
-## Estructura del Proyecto
-
-```
-red-number-detector/
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── config.py
-├── main.py
-├── input/              # Coloca aquí tus imágenes
-├── output/             # Aquí se generará el Excel
-└── src/
-    ├── __init__.py
-    ├── detector.py
-    └── exporter.py
-```
-
 ## Instalación
 
 ### 1. Clonar o descargar el proyecto
@@ -43,25 +26,15 @@ pip install -r requirements.txt
 
 ### 4. Instalar Tesseract OCR
 
-**Windows:**
 - Descarga desde: https://github.com/UB-Mannheim/tesseract/wiki
 - Instala y ajusta la ruta en `config.py` si es necesario
-
-**Linux:**
-```bash
-sudo apt-get install tesseract-ocr
-```
-
-**Mac:**
-```bash
-brew install tesseract
-```
 
 ## Uso
 
 1. Coloca tus imágenes (.jpg, .png, etc.) en la carpeta `input/`
 
 2. Ejecuta el script:
+
 ```bash
 python main.py
 ```
@@ -71,10 +44,15 @@ python main.py
 ## Configuración
 
 Puedes ajustar parámetros en `config.py`:
+
 - Rangos de color rojo (HSV)
 - Tamaño mínimo de contornos
 - Configuración de OCR
 - Rutas de directorios
+
+## Generar .exe
+
+pyinstaller --onefile --windowed --noconsole --name "DetectorNumeros" --icon=img/icon.ico main.py
 
 ## Formato de Salida
 
