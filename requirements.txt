@@ -3,5 +3,4 @@ numpy==2.2.6
 pytesseract==0.3.13
 pandas==2.3.3
 openpyxl==3.1.5
-pillow==12.1.0
 
