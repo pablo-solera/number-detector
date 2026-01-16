@@ -47,23 +47,23 @@ class DetectorUI:
 
         # Estilo para botones
         style.configure('Primary.TButton',
-                       font=('Segoe UI', 10, 'bold'),
-                       padding=10)
+                        font=('Segoe UI', 10, 'bold'),
+                        padding=10)
 
         style.configure('Success.TButton',
-                       font=('Segoe UI', 10, 'bold'),
-                       padding=10)
+                        font=('Segoe UI', 10, 'bold'),
+                        padding=10)
 
         # Estilo para labels
         style.configure('Title.TLabel',
-                       font=('Segoe UI', 16, 'bold'),
-                       foreground=config.UI_COLOR_PRIMARY)
+                        font=('Segoe UI', 16, 'bold'),
+                        foreground=config.UI_COLOR_PRIMARY)
 
         style.configure('Subtitle.TLabel',
-                       font=('Segoe UI', 11, 'bold'))
+                        font=('Segoe UI', 11, 'bold'))
 
         style.configure('Info.TLabel',
-                       font=('Segoe UI', 9))
+                        font=('Segoe UI', 9))
 
     def create_widgets(self):
         """Crear todos los widgets de la interfaz"""
@@ -80,7 +80,7 @@ class DetectorUI:
 
         # ===== TITULO =====
         title = ttk.Label(main_frame, text="Detector de Numeros Rojos",
-                         style='Title.TLabel')
+                          style='Title.TLabel')
         title.grid(row=row, column=0, columnspan=3, pady=(0, 20))
         row += 1
 
@@ -92,7 +92,8 @@ class DetectorUI:
 
         # Input folder
         ttk.Label(folder_frame, text="Carpeta de entrada:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        ttk.Entry(folder_frame, textvariable=self.input_folder, width=50).grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        ttk.Entry(folder_frame, textvariable=self.input_folder, width=50).grid(row=0, column=1, sticky=(tk.W, tk.E),
+                                                                               padx=(0, 10))
         ttk.Button(folder_frame, text="Examinar...", command=self.browse_input).grid(row=0, column=2)
 
         # Image count
@@ -100,8 +101,10 @@ class DetectorUI:
         self.image_count_label.grid(row=1, column=1, sticky=tk.W, pady=(5, 0))
 
         # Output folder
-        ttk.Label(folder_frame, text="Carpeta de salida:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10), pady=(10, 0))
-        ttk.Entry(folder_frame, textvariable=self.output_folder, width=50).grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(0, 10), pady=(10, 0))
+        ttk.Label(folder_frame, text="Carpeta de salida:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10),
+                                                                pady=(10, 0))
+        ttk.Entry(folder_frame, textvariable=self.output_folder, width=50).grid(row=2, column=1, sticky=(tk.W, tk.E),
+                                                                                padx=(0, 10), pady=(10, 0))
         ttk.Button(folder_frame, text="Examinar...", command=self.browse_output).grid(row=2, column=2, pady=(10, 0))
 
         # ===== SECCION: CONFIGURACION =====
@@ -119,7 +122,8 @@ class DetectorUI:
         s_scale.configure(command=lambda v: self.s_label.config(text=f"{int(float(v))}"))
 
         # V_min
-        ttk.Label(config_frame, text="Brillo minimo (V):").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(10, 0))
+        ttk.Label(config_frame, text="Brillo minimo (V):").grid(row=1, column=0, sticky=tk.W, padx=(0, 10),
+                                                                pady=(10, 0))
         v_scale = ttk.Scale(config_frame, from_=0, to=255, variable=self.v_min, orient=tk.HORIZONTAL)
         v_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(0, 10), pady=(10, 0))
         self.v_label = ttk.Label(config_frame, text=f"{self.v_min.get()}")
@@ -137,11 +141,14 @@ class DetectorUI:
         preset_frame.grid(row=3, column=0, columnspan=3, pady=(10, 0))
 
         ttk.Label(preset_frame, text="Presets:").pack(side=tk.LEFT, padx=(0, 10))
-        ttk.Button(preset_frame, text="Muy Permisivo", command=lambda: self.load_preset(20, 20)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(preset_frame, text="Muy Permisivo", command=lambda: self.load_preset(20, 20)).pack(side=tk.LEFT,
+                                                                                                      padx=2)
         ttk.Button(preset_frame, text="Permisivo", command=lambda: self.load_preset(50, 50)).pack(side=tk.LEFT, padx=2)
         ttk.Button(preset_frame, text="Medio", command=lambda: self.load_preset(80, 80)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(preset_frame, text="Restrictivo", command=lambda: self.load_preset(120, 120)).pack(side=tk.LEFT, padx=2)
-        ttk.Button(preset_frame, text="Muy Restrictivo", command=lambda: self.load_preset(150, 150)).pack(side=tk.LEFT, padx=2)
+        ttk.Button(preset_frame, text="Restrictivo", command=lambda: self.load_preset(120, 120)).pack(side=tk.LEFT,
+                                                                                                      padx=2)
+        ttk.Button(preset_frame, text="Muy Restrictivo", command=lambda: self.load_preset(150, 150)).pack(side=tk.LEFT,
+                                                                                                          padx=2)
 
         # ===== SECCION: OPCIONES AVANZADAS =====
         advanced_frame = ttk.LabelFrame(main_frame, text="Opciones Avanzadas", padding="10")
@@ -150,12 +157,14 @@ class DetectorUI:
 
         # Max workers
         ttk.Label(advanced_frame, text="Procesos paralelos:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        ttk.Spinbox(advanced_frame, from_=1, to=32, textvariable=self.max_workers, width=10).grid(row=0, column=1, sticky=tk.W)
-        ttk.Label(advanced_frame, text="(mas rapido con mas CPUs)", style='Info.TLabel').grid(row=0, column=2, sticky=tk.W, padx=(10, 0))
+        ttk.Spinbox(advanced_frame, from_=1, to=32, textvariable=self.max_workers, width=10).grid(row=0, column=1,
+                                                                                                  sticky=tk.W)
+        ttk.Label(advanced_frame, text="(mas rapido con mas CPUs)", style='Info.TLabel').grid(row=0, column=2,
+                                                                                              sticky=tk.W, padx=(10, 0))
 
         # Debug mode
         ttk.Checkbutton(advanced_frame, text="Modo debug (guardar imagenes intermedias)",
-                       variable=self.debug_mode).grid(row=1, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+                        variable=self.debug_mode).grid(row=1, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
 
         # ===== SECCION: ACCIONES =====
         action_frame = ttk.Frame(main_frame)
@@ -163,14 +172,14 @@ class DetectorUI:
         row += 1
 
         self.process_button = ttk.Button(action_frame, text="PROCESAR IMAGENES",
-                                        command=self.start_processing,
-                                        style='Primary.TButton',
-                                        width=30)
+                                         command=self.start_processing,
+                                         style='Primary.TButton',
+                                         width=30)
         self.process_button.pack(side=tk.LEFT, padx=5)
 
         self.cancel_button = ttk.Button(action_frame, text="Cancelar",
-                                       command=self.cancel_processing,
-                                       state=tk.DISABLED)
+                                        command=self.cancel_processing,
+                                        state=tk.DISABLED)
         self.cancel_button.pack(side=tk.LEFT, padx=5)
 
         # ===== SECCION: PROGRESO =====
@@ -197,8 +206,8 @@ class DetectorUI:
         log_scroll.grid(row=0, column=1, sticky=(tk.N, tk.S))
 
         self.log_text = tk.Text(log_frame, height=10, wrap=tk.WORD,
-                               yscrollcommand=log_scroll.set,
-                               font=('Consolas', 9))
+                                yscrollcommand=log_scroll.set,
+                                font=('Consolas', 9))
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         log_scroll.config(command=self.log_text.yview)
 
@@ -296,9 +305,9 @@ class DetectorUI:
     def process_images(self):
         """Procesar imagenes (ejecutado en thread separado)"""
         try:
-            self.log("="*50)
+            self.log("=" * 50)
             self.log("INICIANDO PROCESAMIENTO")
-            self.log("="*50)
+            self.log("=" * 50)
 
             # Obtener imagenes
             input_dir = Path(self.input_folder.get())
@@ -309,7 +318,9 @@ class DetectorUI:
             for ext in config.IMAGE_EXTENSIONS:
                 image_paths.extend(input_dir.glob(f"*{ext}"))
 
-            self.log(f"Imagenes encontradas: {len(image_paths)}")
+            total_images = len(image_paths)
+
+            self.log(f"Imagenes encontradas: {total_images}")
             self.log(f"Configuracion: S_min={self.s_min.get()}, V_min={self.v_min.get()}")
             self.log(f"Procesos paralelos: {self.max_workers.get()}")
             self.log("")
@@ -325,15 +336,44 @@ class DetectorUI:
             debug_dir = output_dir / "debug" if self.debug_mode.get() else None
             detector = RedNumberDetector(debug=self.debug_mode.get(), debug_dir=debug_dir)
 
+            # Callback de progreso
+            def update_progress(current, total, image_name):
+                progress_pct = (current / total) * 100
+
+                # Actualizar UI desde thread
+                self.root.after(0, lambda: self.progress_bar.config(value=progress_pct))
+                self.root.after(0, lambda: self.status_label.config(
+                    text=f"Procesando {current}/{total} - {image_name}"
+                ))
+
+                # Log cada 10 imagenes o al final
+                if current % 10 == 0 or current == total:
+                    self.root.after(0, lambda: self.log(
+                        f"Progreso: {current}/{total} ({progress_pct:.1f}%) - {image_name}"
+                    ))
+
             # Procesar
             start_time = time.time()
-            results = detector.process_batch(image_paths, max_workers=self.max_workers.get())
+            self.log("Iniciando procesamiento paralelo...")
+
+            results = detector.process_batch(
+                image_paths,
+                max_workers=self.max_workers.get(),
+                progress_callback=update_progress
+            )
+
             elapsed = time.time() - start_time
 
             # Preparar datos para Excel
             self.log("Preparando datos para Excel...")
             rows = []
+            total_numbers = 0
+            total_motors = 0
+
             for image_path, (numbers, motors) in results.items():
+                total_numbers += len(numbers)
+                total_motors += len(set(motors)) if motors else 0
+
                 if not motors:
                     motors = [""]
 
@@ -353,29 +393,52 @@ class DetectorUI:
 
             # Resumen
             self.log("")
-            self.log("="*50)
+            self.log("=" * 50)
             self.log("PROCESAMIENTO COMPLETADO")
-            self.log("="*50)
+            self.log("=" * 50)
             self.log(f"Tiempo total: {elapsed:.2f} segundos")
-            self.log(f"Tiempo promedio: {elapsed/len(results):.2f}s por imagen")
-            self.log(f"Filas generadas: {len(rows)}")
-            self.log(f"Excel guardado en: {output_file}")
-            self.log("="*50)
+            self.log(f"Tiempo promedio: {elapsed / len(results):.2f}s por imagen")
+            self.log(f"Imagenes procesadas: {len(results)}")
+            self.log(f"Numeros detectados: {total_numbers}")
+            self.log(f"Motores unicos: {total_motors}")
+            self.log(f"Filas en Excel: {len(rows)}")
+            self.log(f"Archivo guardado: {output_file.name}")
+            self.log("=" * 50)
 
-            self.progress_bar['value'] = 100
-            self.status_label.config(text="Completado exitosamente")
+            # Actualizar UI
+            self.root.after(0, lambda: self.progress_bar.config(value=100))
+            self.root.after(0, lambda: self.status_label.config(
+                text=f"Completado: {len(results)} imagenes procesadas"
+            ))
 
-            messagebox.showinfo("Exito", f"Procesamiento completado!\n\nArchivo: {output_file}")
+            # Mostrar mensaje de exito
+            self.root.after(0, lambda: messagebox.showinfo(
+                "Procesamiento Completado",
+                f"Procesamiento exitoso!\n\n"
+                f"Imagenes: {len(results)}\n"
+                f"Numeros: {total_numbers}\n"
+                f"Motores: {total_motors}\n"
+                f"Tiempo: {elapsed:.2f}s\n\n"
+                f"Archivo: {output_file}"
+            ))
 
         except Exception as e:
+            import traceback
+            error_msg = traceback.format_exc()
+
             self.log(f"ERROR: {str(e)}")
-            self.status_label.config(text="Error en el procesamiento")
-            messagebox.showerror("Error", f"Error durante el procesamiento:\n{str(e)}")
+            self.log(error_msg)
+
+            self.root.after(0, lambda: self.status_label.config(text="Error en el procesamiento"))
+            self.root.after(0, lambda: messagebox.showerror(
+                "Error",
+                f"Error durante el procesamiento:\n\n{str(e)}"
+            ))
 
         finally:
             self.is_processing = False
-            self.process_button.config(state=tk.NORMAL)
-            self.cancel_button.config(state=tk.DISABLED)
+            self.root.after(0, lambda: self.process_button.config(state=tk.NORMAL))
+            self.root.after(0, lambda: self.cancel_button.config(state=tk.DISABLED))
 
 
 def main():
