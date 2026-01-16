@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import messagebox
 from config import TESSERACT_CMD
 
+
 def check_tesseract_installed():
     """
     Comprueba si Tesseract está instalado en el equipo.
