@@ -37,14 +37,14 @@ jobs:
 
       - name: Construir ejecutable con PyInstaller
         run: |
-          pyinstaller --onefile --noconsole --windowed --name "ComparadorCarpetas" --icon=img/icon.ico main.py
+          pyinstaller --onefile --noconsole --windowed --name "DetectorNumeros" --icon=img/icon.ico main.py
 
       - name: Verificar ejecutable generado
         run: |
           dir dist
-          if (Test-Path "dist\ComparadorCarpetas.exe") {
+          if (Test-Path "dist\DetectorNumeros.exe") {
             Write-Host "✓ Ejecutable generado correctamente"
-            $size = (Get-Item "dist\ComparadorCarpetas.exe").Length / 1MB
+            $size = (Get-Item "dist\DetectorNumeros.exe").Length / 1MB
             Write-Host "Tamaño: $([math]::Round($size, 2)) MB"
           } else {
             Write-Error "✗ Error: No se generó el ejecutable"
@@ -53,13 +53,13 @@ jobs:
 
       - name: Crear archivo ZIP
         run: |
-          Compress-Archive -Path dist\ComparadorCarpetas.exe -DestinationPath ComparadorCarpetas-${{ github.ref_name }}.zip
+          Compress-Archive -Path dist\DetectorNumeros.exe -DestinationPath DetectorNumeros-${{ github.ref_name }}.zip
 
       - name: Subir artefacto
         uses: actions/upload-artifact@v6
         with:
-          name: ComparadorCarpetas-${{ github.ref_name }}
-          path: ComparadorCarpetas-${{ github.ref_name }}.zip
+          name: DetectorNumeros-${{ github.ref_name }}
+          path: DetectorNumeros-${{ github.ref_name }}.zip
           retention-days: 90  # Mantener artefactos por 90 días
 
       - name: Crear Release
@@ -67,8 +67,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            ComparadorCarpetas-${{ github.ref_name }}.zip
-            dist/ComparadorCarpetas.exe
+            DetectorNumeros-${{ github.ref_name }}.zip
+            dist/DetectorNumeros.exe
           draft: false
           prerelease: false
           generate_release_notes: true
