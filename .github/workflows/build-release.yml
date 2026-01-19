@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: "pip"
@@ -53,10 +53,10 @@ jobs:
 
       - name: Crear archivo ZIP
         run: |
-          Compress-Archive -Path dist\ComparadorCarpetas.exe -DestinationPath ComparadorCarpetas-Windows-${{ github.ref_name }}.zip
+          Compress-Archive -Path dist\ComparadorCarpetas.exe -DestinationPath ComparadorCarpetas-${{ github.ref_name }}.zip
 
       - name: Subir artefacto
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ComparadorCarpetas-${{ github.ref_name }}
           path: ComparadorCarpetas-${{ github.ref_name }}.zip
@@ -64,7 +64,7 @@ jobs:
 
       - name: Crear Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             ComparadorCarpetas-${{ github.ref_name }}.zip
