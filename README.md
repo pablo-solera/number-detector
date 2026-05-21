@@ -9,19 +9,22 @@ Script en Python que detecta números en color rojo dentro de imágenes y los ex
 ### 2. Crear entorno virtual (recomendado)
 
 ```bash
-python -m venv venv
+python -m venv .venv
 
 # Windows
-venv\Scripts\activate
+.venv\Scripts\activate
 
 # Linux/Mac
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ### 3. Instalar dependencias
 
 ```bash
-pip install -r requirements.txt
+pip install -e .
+
+# Para desarrollo y tests
+pip install -e ".[dev]"
 ```
 
 ### 4. Instalar Tesseract OCR
