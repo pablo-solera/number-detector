@@ -18,8 +18,8 @@ class FolderDropWidget(QLabel):
         self._path: Path | None = None
 
         self.setAcceptDrops(True)
-        self.setMinimumHeight(64)
-        self.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+        self.setMinimumHeight(132)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setWordWrap(True)
 
         self._placeholder = placeholder
@@ -80,25 +80,40 @@ class FolderDropWidget(QLabel):
 
     # ---- UI ----
     def _render(self):
+        icon = "📁" if "entrada" in self._title.lower() or "source" in self._title.lower() else "⇩"
         if self._path:
-            self.setText(f"<b>{self._title}:</b><br>{self._path}")
+            self.setText(
+                f"<div style='text-align:center;'>"
+                f"<div style='font-size:24px; color:#0b4ea2;'>{icon}</div>"
+                f"<div style='font-size:14px; font-weight:700; color:#001b44; margin-top:8px;'>{self._title}</div>"
+                f"<div style='font-size:12px; color:#4d5f7a; margin-top:6px;'>{self._path}</div>"
+                f"</div>"
+            )
         else:
-            self.setText(f"<b>{self._title}:</b><br><span style='color:#666'>{self._placeholder}</span>")
+            self.setText(
+                f"<div style='text-align:center;'>"
+                f"<div style='font-size:24px; color:#0b4ea2;'>{icon}</div>"
+                f"<div style='font-size:14px; font-weight:700; color:#001b44; margin-top:8px;'>{self._title}</div>"
+                f"<div style='font-size:12px; color:#4d5f7a; margin-top:6px;'>{self._placeholder}</div>"
+                f"</div>"
+            )
 
     def _apply_style(self, idle: bool):
         if idle:
             self.setStyleSheet(
                 "QLabel {"
-                " border: 2px dashed #9aa0a6;"
-                " border-radius: 12px;"
-                " padding: 10px 12px;"
+                " background: #ffffff;"
+                " border: 2px dashed #cfd8ea;"
+                " border-radius: 2px;"
+                " padding: 18px 16px;"
                 "}"
             )
         else:
             self.setStyleSheet(
                 "QLabel {"
-                " border: 2px dashed #2e7d32;"
-                " border-radius: 12px;"
-                " padding: 10px 12px;"
+                " background: #f5f8ff;"
+                " border: 2px dashed #0b4ea2;"
+                " border-radius: 2px;"
+                " padding: 18px 16px;"
                 "}"
             )

@@ -18,12 +18,10 @@ class FolderScanWorker(QThread):
     sig_finished = Signal(str)  # excel path
     sig_error = Signal(str)
 
-    def __init__(self, input_dir: Path, output_dir: Path, s_min: int, v_min: int, debug: bool = False):
+    def __init__(self, input_dir: Path, output_dir: Path, debug: bool = False):
         super().__init__()
         self.input_dir = input_dir
         self.output_dir = output_dir
-        self.s_min = s_min
-        self.v_min = v_min
         self.debug = debug
         self._cancel = False
 
@@ -32,7 +30,7 @@ class FolderScanWorker(QThread):
 
     def run(self) -> None:
         try:
-            settings = DetectionSettings(s_min=self.s_min, v_min=self.v_min)
+            settings = DetectionSettings()
 
             uc = create_process_folder_use_case(
                 settings=settings,

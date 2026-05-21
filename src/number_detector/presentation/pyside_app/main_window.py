@@ -6,9 +6,9 @@ from PySide6.QtCore import Qt, Slot, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QGridLayout, QGroupBox,
-    QLabel, QLineEdit, QPushButton, QFileDialog, QSlider,
+    QLabel, QLineEdit, QPushButton, QFileDialog,
     QHBoxLayout, QProgressBar, QPlainTextEdit, QMessageBox,
-    QTableWidget, QTableWidgetItem, QHeaderView
+    QTableWidget, QTableWidgetItem, QHeaderView, QFrame
 )
 
 from number_detector.application.use_cases.list_images_use_case import ListImagesUseCase
@@ -42,123 +42,102 @@ class DropDirLineEdit(QLineEdit):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Detector de Números Rojos")
-        self.resize(980, 780)
+        self.setWindowTitle("Detector ETKA")
+        self.resize(1100, 740)
 
         self.worker: FolderScanWorker | None = None
         self.last_excel_path: Path | None = None
 
         root = QWidget()
         self.setCentralWidget(root)
+        root.setStyleSheet("background: #f7f8fd;")
         main = QVBoxLayout(root)
-        main.setSpacing(12)
+        main.setContentsMargins(18, 14, 18, 14)
+        main.setSpacing(16)
 
-        title = QLabel("Detector de Números Rojos")
-        title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        title.setStyleSheet("font-size: 22px; font-weight: 700; color: #1e66d0;")
-        main.addWidget(title)
-
-        # ---- Grupo: Carpetas ----
-        g_paths = QGroupBox("Carpetas")
-        main.addWidget(g_paths)
-        grid = QGridLayout(g_paths)
+        # ---- Carpetas ----
+        paths_panel = QFrame()
+        paths_panel.setStyleSheet("QFrame { background: transparent; border: none; }")
+        main.addWidget(paths_panel)
+        grid = QGridLayout(paths_panel)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(14)
         grid.setColumnStretch(0, 1)
         grid.setColumnStretch(1, 1)
 
-        self.in_drop = FolderDropWidget("Carpeta de entrada")
-        self.out_drop = FolderDropWidget("Carpeta de salida")
+        self.in_drop = FolderDropWidget("Carpeta de entrada", "Suelta una carpeta o haz click para seleccionar")
+        self.out_drop = FolderDropWidget("Carpeta de salida", "Selecciona dónde guardar el Excel")
 
-        self.lbl_found = QLabel("Imágenes encontradas: 0")
+        self.lbl_found = QLabel("0 imágenes encontradas")
+        self.lbl_found.setStyleSheet("color: #4d5f7a; font-size: 12px;")
 
-        grid.addWidget(self.in_drop, 0, 0, 1, 2)
+        grid.addWidget(self.in_drop, 0, 0)
+        grid.addWidget(self.out_drop, 0, 1)
         grid.addWidget(self.lbl_found, 1, 0, 1, 2)
-        grid.addWidget(self.out_drop, 2, 0, 1, 2)
 
         self.in_drop.path_changed.connect(self._update_found_count)
 
-        # ---- Config detección ----
-        g_cfg = QGroupBox("Configuración de Detección")
-        main.addWidget(g_cfg)
-        cfg = QGridLayout(g_cfg)
-        cfg.setColumnStretch(1, 1)
-
-        self.s_slider = QSlider(Qt.Orientation.Horizontal)
-        self.s_slider.setRange(0, 255)
-        self.s_slider.setValue(150)
-
-        self.v_slider = QSlider(Qt.Orientation.Horizontal)
-        self.v_slider.setRange(0, 255)
-        self.v_slider.setValue(150)
-
-        self.lbl_s = QLabel("150")
-        self.lbl_v = QLabel("150")
-        self.lbl_level = QLabel("")
-        self.lbl_level.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-
-        cfg.addWidget(QLabel("Saturación mínima (S):"), 0, 0)
-        cfg.addWidget(self.s_slider, 0, 1)
-        cfg.addWidget(self.lbl_s, 0, 2)
-
-        cfg.addWidget(QLabel("Brillo mínimo (V):"), 1, 0)
-        cfg.addWidget(self.v_slider, 1, 1)
-        cfg.addWidget(self.lbl_v, 1, 2)
-
-        cfg.addWidget(self.lbl_level, 2, 0, 1, 3)
-
-        preset_row = QHBoxLayout()
-        cfg.addLayout(preset_row, 3, 0, 1, 3)
-
-        preset_row.addWidget(QLabel("Presets:"))
-        for label, s, v in [
-            ("Muy Permisivo", 60, 60),
-            ("Permisivo", 90, 90),
-            ("Medio", 120, 120),
-            ("Restrictivo", 150, 150),
-            ("Muy Restrictivo", 180, 180),
-        ]:
-            b = QPushButton(label)
-            b.clicked.connect(lambda _=False, ss=s, vv=v: self._apply_preset(ss, vv))
-            preset_row.addWidget(b)
-        preset_row.addStretch(1)
-
-        self.s_slider.valueChanged.connect(self._sync_labels)
-        self.v_slider.valueChanged.connect(self._sync_labels)
-        self._sync_labels()
-
-        # ---- Acciones ----
-        action_row = QHBoxLayout()
-        main.addLayout(action_row)
-
         self.btn_run = QPushButton("PROCESAR IMÁGENES")
-        self.btn_run.setMinimumHeight(40)
-        self.btn_run.setStyleSheet("font-weight: 700;")
+        self.btn_run.setMinimumHeight(42)
+        self.btn_run.setStyleSheet(
+            "QPushButton { background:#0047a8; color:white; border:none; padding:0 18px; font-weight:700; }"
+            "QPushButton:disabled { background:#9eb6da; }"
+        )
 
         self.btn_cancel = QPushButton("Cancelar")
         self.btn_cancel.setEnabled(False)
+        self.btn_cancel.setMinimumHeight(42)
+        self.btn_cancel.setStyleSheet(
+            "QPushButton { background:#ffffff; color:#001b44; border:1px solid #cfd8ea; padding:0 18px; }"
+            "QPushButton:disabled { color:#9aa6bd; background:#f7f8fd; }"
+        )
 
         self.btn_open_excel = QPushButton("Abrir Excel")
         self.btn_open_excel.setEnabled(False)
+        self.btn_open_excel.setMinimumHeight(42)
+        self.btn_open_excel.setStyleSheet(
+            "QPushButton { background:#ffffff; color:#001b44; border:1px solid #cfd8ea; padding:0 18px; }"
+            "QPushButton:disabled { color:#aab3c2; background:#f7f8fd; }"
+        )
         self.btn_open_excel.clicked.connect(self.open_excel)
-
-        action_row.addStretch(1)
-        action_row.addWidget(self.btn_run)
-        action_row.addWidget(self.btn_cancel)
-        action_row.addWidget(self.btn_open_excel)
-        action_row.addStretch(1)
 
         self.btn_run.clicked.connect(self.start_processing)
         self.btn_cancel.clicked.connect(self.cancel_processing)
 
         # ---- Progreso ----
-        g_prog = QGroupBox("Progreso")
+        g_prog = QGroupBox("Escaneo")
         main.addWidget(g_prog)
         prog = QVBoxLayout(g_prog)
+        prog.setContentsMargins(18, 16, 18, 16)
+        g_prog.setStyleSheet(
+            "QGroupBox { background:#ffffff; border:1px solid #cfd8ea; margin-top:8px; font-weight:700; color:#001b44; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }"
+        )
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
+        self.progress.setFormat("%p%")
+        self.progress.setTextVisible(False)
+        self.progress.setMinimumHeight(8)
+        self.progress.setStyleSheet(
+            "QProgressBar { background:#dbe7ff; border:none; border-radius:4px; }"
+            "QProgressBar::chunk { background:#0047a8; border-radius:4px; }"
+        )
 
-        self.lbl_progress = QLabel("Listo para procesar")
+        progress_header = QHBoxLayout()
+        self.lbl_progress_title = QLabel("Listo para escanear")
+        self.lbl_progress_title.setStyleSheet("font-size:15px; font-weight:700; color:#001b44;")
+        self.lbl_progress_pct = QLabel("0%")
+        self.lbl_progress_pct.setAlignment(Qt.AlignmentFlag.AlignRight)
+        self.lbl_progress_pct.setStyleSheet("font-size:12px; color:#0047a8; font-weight:700;")
+        progress_header.addWidget(self.lbl_progress_title)
+        progress_header.addStretch(1)
+        progress_header.addWidget(self.lbl_progress_pct)
+
+        self.lbl_progress = QLabel("Selecciona carpetas para empezar")
+        self.lbl_progress.setStyleSheet("color:#4d5f7a; font-size:12px;")
+        prog.addLayout(progress_header)
         prog.addWidget(self.progress)
         prog.addWidget(self.lbl_progress)
 
@@ -166,46 +145,42 @@ class MainWindow(QMainWindow):
         g_res = QGroupBox("Resultados")
         main.addWidget(g_res, 2)
         res_layout = QVBoxLayout(g_res)
+        res_layout.setContentsMargins(0, 10, 0, 0)
+        g_res.setStyleSheet(
+            "QGroupBox { background:#ffffff; border:1px solid #cfd8ea; margin-top:8px; font-weight:700; color:#001b44; }"
+            "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 6px; }"
+        )
 
         self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(["Imagen", "Números", "Motores", "Carrocería", "Free text", "Error"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SingleSelection)
+        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setShowGrid(False)
+        self.table.setStyleSheet(
+            "QTableWidget { border:none; background:#ffffff; alternate-background-color:#f1f5fb; color:#001b44; }"
+            "QHeaderView::section { background:#eef2fc; color:#5b6578; border:none; border-bottom:1px solid #cfd8ea; padding:9px; font-weight:700; }"
+            "QTableWidget::item { border-bottom:1px solid #e5ebf5; padding:8px; }"
+            "QTableWidget::item:selected { background:#dbeafe; color:#001b44; }"
+            "QTableWidget::item:focus { outline:none; }"
+        )
         res_layout.addWidget(self.table)
-
-        # ---- Log ----
-        g_log = QGroupBox("Log")
-        main.addWidget(g_log, 1)
-        log_layout = QVBoxLayout(g_log)
 
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
-        log_layout.addWidget(self.log)
 
-    # ---------- UI helpers ----------
-    def _apply_preset(self, s: int, v: int):
-        self.s_slider.setValue(s)
-        self.v_slider.setValue(v)
-
-    def _sync_labels(self):
-        s = self.s_slider.value()
-        v = self.v_slider.value()
-        self.lbl_s.setText(str(s))
-        self.lbl_v.setText(str(v))
-
-        if s <= 80 and v <= 80:
-            level = "Muy Permisivo"
-        elif s <= 110 and v <= 110:
-            level = "Permisivo"
-        elif s <= 140 and v <= 140:
-            level = "Medio"
-        elif s <= 170 and v <= 170:
-            level = "Restrictivo"
-        else:
-            level = "Muy Restrictivo"
-
-        self.lbl_level.setText(f"Nivel: {level}")
+        # ---- Acciones ----
+        action_row = QHBoxLayout()
+        action_row.setContentsMargins(0, 0, 0, 0)
+        main.addLayout(action_row)
+        action_row.addStretch(1)
+        action_row.addWidget(self.btn_run)
+        action_row.addWidget(self.btn_cancel)
+        action_row.addWidget(self.btn_open_excel)
 
     @Slot()
     def pick_input_dir(self):
@@ -223,12 +198,12 @@ class MainWindow(QMainWindow):
     def _update_found_count(self, *_):
         p = self.in_drop.path()
         if not p:
-            self.lbl_found.setText("Imágenes encontradas: 0")
+            self.lbl_found.setText("0 imágenes encontradas")
             return
 
         exts = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
         count = sum(1 for f in p.iterdir() if f.is_file() and f.suffix.lower() in exts)
-        self.lbl_found.setText(f"Imágenes encontradas: {count}")
+        self.lbl_found.setText(f"{count} imágenes encontradas")
 
     def append_log(self, text: str):
         self.log.appendPlainText(text)
@@ -283,18 +258,17 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Sin imágenes", "No se han encontrado imágenes en la carpeta de entrada.")
             return
 
-        s_min = self.s_slider.value()
-        v_min = self.v_slider.value()
-
         self.btn_run.setEnabled(False)
         self.btn_cancel.setEnabled(True)
 
         self.progress.setRange(0, len(images))
         self.progress.setValue(0)
-        self.lbl_progress.setText(f"0/{len(images)}…")
-        self.append_log(f"Procesando {len(images)} imágenes… (exportación automática al terminar)")
+        self.lbl_progress_pct.setText("0%")
+        self.lbl_progress_title.setText("Escaneando imágenes...")
+        self.lbl_progress.setText(f"Preparando {len(images)} imágenes...")
+        self.append_log(f"Procesando {len(images)} imágenes. El Excel se exportará al terminar.")
 
-        self.worker = FolderScanWorker(input_dir=in_dir, output_dir=out_dir, s_min=s_min, v_min=v_min, debug=False)
+        self.worker = FolderScanWorker(input_dir=in_dir, output_dir=out_dir, debug=False)
         self.worker.sig_started.connect(self.on_started)
         self.worker.sig_progress.connect(self.on_progress)
         self.worker.sig_result.connect(self.on_result)
@@ -308,29 +282,39 @@ class MainWindow(QMainWindow):
         if self.worker:
             self.worker.request_cancel()
             self.btn_cancel.setEnabled(False)
-            self.append_log("Cancelación solicitada…")
+            self.lbl_progress_title.setText("Cancelando...")
+            self.lbl_progress.setText("Cancelando proceso...")
+            self.append_log("Cancelación solicitada...")
 
     @Slot(int)
     def on_started(self, total: int):
         self.progress.setRange(0, max(total, 1))
         self.progress.setValue(0)
+        self.lbl_progress_pct.setText("0%")
+        self.lbl_progress_title.setText("Escaneando imágenes...")
+        self.lbl_progress.setText(f"Preparando {total} imágenes...")
 
     @Slot(int, int, str)
     def on_progress(self, done: int, total: int, filename: str):
         self.progress.setValue(done)
-        self.lbl_progress.setText(f"Procesando {done}/{total}: {filename}")
+        pct = int((done / max(total, 1)) * 100)
+        self.lbl_progress_pct.setText(f"{pct}%")
+        self.lbl_progress.setText(f"Procesando imagen {done} de {total} · {filename}")
 
     @Slot(str)
     def on_finished(self, excel_path: str):
         if excel_path:
             self.last_excel_path = Path(excel_path)
             self.btn_open_excel.setEnabled(True)
-            self.append_log(f"✅ Excel exportado: {excel_path}")
+            self.lbl_progress_title.setText("Escaneo completado")
+            self.lbl_progress_pct.setText("100%")
+            self.lbl_progress.setText("Proceso completado · Excel listo")
             QMessageBox.information(self, "Terminado", f"Proceso completado.\nExcel exportado en:\n{excel_path}")
         else:
-            self.append_log("⛔ Proceso cancelado.")
+            self.lbl_progress_title.setText("Escaneo cancelado")
+            self.lbl_progress.setText("Proceso cancelado")
+            QMessageBox.information(self, "Cancelado", "Proceso cancelado.")
 
-        self.lbl_progress.setText("Listo.")
         self.btn_run.setEnabled(True)
         self.btn_cancel.setEnabled(False)
         self.worker = None
@@ -339,7 +323,8 @@ class MainWindow(QMainWindow):
     def on_error(self, msg: str):
         self.append_log(f"❌ Error: {msg}")
         QMessageBox.critical(self, "Error", msg)
-        self.lbl_progress.setText("Error.")
+        self.lbl_progress_title.setText("Error")
+        self.lbl_progress.setText("No se pudo completar el proceso")
         self.btn_run.setEnabled(True)
         self.btn_cancel.setEnabled(False)
         self.worker = None
