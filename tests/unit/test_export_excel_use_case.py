@@ -17,8 +17,8 @@ def test_export_excel_maps_detection_results_to_rows(tmp_path) -> None:
     exporter = FakeExporter()
     output_path = tmp_path / "result.xlsx"
     results = [
-        DetectionResult("img-1", [123, 456], ["1.5/B38A15P"], ["Plug-in Hybrid"]),
-        DetectionResult("img-2", [], ["/ZKU-ZK02"], ["ALLTRACK"]),
+        DetectionResult("img-1", [123, 456], ["1.5/B38A15P"], ["Plug-in Hybrid"], ["Berlina"]),
+        DetectionResult("img-2", [], ["/ZKU-ZK02"], ["ALLTRACK"], ["Station Wagon"]),
         DetectionResult("img-3", [999], [], error="failed"),
     ]
 
@@ -27,7 +27,7 @@ def test_export_excel_maps_detection_results_to_rows(tmp_path) -> None:
     assert result_path == output_path
     assert exporter.output_path == output_path
     assert exporter.rows == [
-        ["img-1", 123, "1.5/B38A15P", "Plug-in Hybrid"],
-        ["img-1", 456, "1.5/B38A15P", "Plug-in Hybrid"],
-        ["img-2", "", "/ZKU-ZK02", "ALLTRACK"],
+        ["img-1", 123, "1.5/B38A15P", "Berlina", "Plug-in Hybrid"],
+        ["img-1", 456, "1.5/B38A15P", "Berlina", "Plug-in Hybrid"],
+        ["img-2", "", "/ZKU-ZK02", "Station Wagon", "ALLTRACK"],
     ]

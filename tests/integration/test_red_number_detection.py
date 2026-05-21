@@ -57,3 +57,15 @@ def test_detects_green_free_text_from_etka_sample() -> None:
 
     assert result.error is None
     assert "Plug-in Hybrid" in result.free_text
+
+
+@pytest.mark.skipif(not check_tesseract_installed(), reason="Tesseract is not available")
+def test_detects_pink_body_text_from_etka_samples() -> None:
+    test2 = create_scan_single_image_use_case(DetectionSettings()).execute(Path("tests/fixtures/test2.jpg"))
+    test4 = create_scan_single_image_use_case(DetectionSettings()).execute(Path("tests/fixtures/test4.jpg"))
+
+    assert test2.error is None
+    assert any("CD1" in text for text in test2.body_text)
+    assert any("Berlina" in text for text in test2.body_text)
+    assert test4.error is None
+    assert any("Station Wagon" in text for text in test4.body_text)
