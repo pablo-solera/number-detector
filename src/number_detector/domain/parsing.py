@@ -13,6 +13,11 @@ def extract_part_numbers(text: str, min_digits: int = 3, max_digits: int = 6) ->
     return sorted(set(out))
 
 
+def extract_free_texts(text: str) -> list[str]:
+    cleaned = " ".join((text or "").split())
+    return [cleaned] if cleaned else []
+
+
 def normalize_motor_text(text: str) -> str:
     t = (text or "").upper()
     t = t.replace("\t", "").replace("\r", "")

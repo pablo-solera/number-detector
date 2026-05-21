@@ -9,6 +9,7 @@ class TesseractService:
 
         self.cfg_digits = "--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789"
         self.cfg_motor = "--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./-"
+        self.cfg_free_text = "--oem 1 --psm 6"
 
     def _prep(self, roi_bgr, scale: float = 2.5):
         roi = cv2.resize(roi_bgr, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
@@ -26,3 +27,7 @@ class TesseractService:
     def read_text(self, roi_bgr) -> str:
         th = self._prep(roi_bgr)
         return pytesseract.image_to_string(th, config=self.cfg_motor).strip()
+
+    def read_free_text(self, roi_bgr) -> str:
+        th = self._prep(roi_bgr)
+        return pytesseract.image_to_string(th, config=self.cfg_free_text).strip()

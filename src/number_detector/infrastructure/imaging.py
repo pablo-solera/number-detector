@@ -59,6 +59,16 @@ class OpenCVRedDetector:
         upper = np.array([self.s.motor_blue_h_max, 255, 255])
         return cv2.inRange(hsv, lower, upper)
 
+    def _build_green_mask(self, bgr):
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        lower = np.array([
+            self.s.free_text_green_h_min,
+            self.s.free_text_green_s_min,
+            self.s.free_text_green_v_min,
+        ])
+        upper = np.array([self.s.free_text_green_h_max, 255, 255])
+        return cv2.inRange(hsv, lower, upper)
+
     def _remove_line_components(self, mask: np.ndarray) -> np.ndarray:
         """Remove thin/long leader lines so they don't merge with digits after dilation."""
         n, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
@@ -185,3 +195,45 @@ class OpenCVRedDetector:
 
     def find_motor_regions(self, bgr, name: str = "") -> list[ImageRegion]:
         return [ImageRegion(bbox=bb, image=roi) for bb, roi in self.find_motor_bboxes(bgr, name=name)]
+
+    def find_free_text_bboxes(self, bgr, name: str = "") -> list[tuple[BoundingBox, np.ndarray]]:
+        """Return green free-text candidate regions as (bbox_in_full_image, roi_bgr)."""
+        H, W = bgr.shape[:2]
+        mask = self._build_green_mask(bgr)
+        k = cv2.getStructuringElement(cv2.MORPH_RECT, self.s.free_text_dilate_kernel)
+        dil = cv2.dilate(mask, k, iterations=self.s.free_text_dilate_iters)
+
+        if name:
+            self._save(f"{name}_free_text_green_mask.png", mask)
+            self._save(f"{name}_free_text_green_dilated.png", dil)
+
+        n, _, stats, _ = cv2.connectedComponentsWithStats(dil, connectivity=8)
+
+        out: list[tuple[BoundingBox, np.ndarray]] = []
+        for i in range(1, n):
+            x, y, w, h, area = stats[i]
+            if y < int(H * self.s.free_text_min_y_pct):
+                continue
+            if x > int(W * self.s.free_text_max_x_pct):
+                continue
+            if area < self.s.free_text_min_area:
+                continue
+            if w < self.s.free_text_min_w or h < self.s.free_text_min_h:
+                continue
+            if w > self.s.free_text_max_w or h > self.s.free_text_max_h:
+                continue
+
+            bb = BoundingBox(int(x), int(y), int(w), int(h))
+            pad = self.s.free_text_roi_padding
+            x1 = max(int(x) - pad, 0)
+            y1 = max(int(y) - pad, 0)
+            x2 = min(int(x + w) + pad, W)
+            y2 = min(int(y + h) + pad, H)
+            roi = bgr[y1:y2, x1:x2]
+            out.append((bb, roi))
+
+        out.sort(key=lambda t: (t[0].y, t[0].x))
+        return out
+
+    def find_free_text_regions(self, bgr, name: str = "") -> list[ImageRegion]:
+        return [ImageRegion(bbox=bb, image=roi) for bb, roi in self.find_free_text_bboxes(bgr, name=name)]

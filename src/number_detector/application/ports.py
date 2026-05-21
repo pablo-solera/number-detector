@@ -21,13 +21,19 @@ class OcrReader(Protocol):
     def read_text(self, image: Image) -> str:
         """Read free-form motor text from an image region."""
 
+    def read_free_text(self, image: Image) -> str:
+        """Read general free text from an image region."""
+
 
 class RedRegionDetector(Protocol):
     def find_part_regions(self, image: Image, name: str = "") -> list[ImageRegion]:
         """Find red part-number regions to OCR."""
 
     def find_motor_regions(self, image: Image, name: str = "") -> list[ImageRegion]:
-        """Find red motor-code regions to OCR."""
+        """Find blue motor-code regions to OCR."""
+
+    def find_free_text_regions(self, image: Image, name: str = "") -> list[ImageRegion]:
+        """Find green free-text regions to OCR."""
 
 
 class ResultsExporter(Protocol):

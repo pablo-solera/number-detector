@@ -5,7 +5,7 @@ from pathlib import Path
 from number_detector.application.ports import ImageReader, OcrReader, RedRegionDetector
 from number_detector.application.settings import DetectionSettings
 from number_detector.domain.models.detection_result import DetectionResult
-from number_detector.domain.parsing import extract_motor_codes, extract_part_numbers
+from number_detector.domain.parsing import extract_free_texts, extract_motor_codes, extract_part_numbers
 
 
 class ScanSingleImageUseCase:
@@ -27,7 +27,7 @@ class ScanSingleImageUseCase:
         p = Path(image_path)
         img = self.image_reader.read(p)
         if img is None:
-            return DetectionResult(image_name=p.stem, part_numbers=[], motor_codes=[], error="No se pudo abrir")
+            return DetectionResult(image_name=p.stem, part_numbers=[], motor_codes=[], free_text=[], error="No se pudo abrir")
 
         parts: list[int] = []
         for region in self.detector.find_part_regions(img, name=p.stem):
@@ -45,9 +45,15 @@ class ScanSingleImageUseCase:
             txt = self.ocr.read_text(region.image)
             motors.extend(extract_motor_codes(txt))
 
+        free_text: list[str] = []
+        for region in self.detector.find_free_text_regions(img, name=p.stem):
+            txt = self.ocr.read_free_text(region.image)
+            free_text.extend(extract_free_texts(txt))
+
         return DetectionResult(
             image_name=p.stem,
             part_numbers=sorted(set(parts)),
             motor_codes=sorted(set(motors)),
+            free_text=sorted(set(free_text)),
             error=None,
         )

@@ -18,11 +18,21 @@ class ExportExcelUseCase:
                 continue
             if r.part_numbers:
                 for n in r.part_numbers:
-                    rows.append([r.image_name, n, "".join(r.motor_codes) if r.motor_codes else ""])
+                    rows.append([
+                        r.image_name,
+                        n,
+                        "".join(r.motor_codes) if r.motor_codes else "",
+                        " | ".join(r.free_text) if r.free_text else "",
+                    ])
             else:
-                # still export motor if no numbers
-                if r.motor_codes:
-                    rows.append([r.image_name, "", "".join(r.motor_codes)])
+                # still export metadata if no numbers
+                if r.motor_codes or r.free_text:
+                    rows.append([
+                        r.image_name,
+                        "",
+                        "".join(r.motor_codes) if r.motor_codes else "",
+                        " | ".join(r.free_text) if r.free_text else "",
+                    ])
 
         self.exporter.export(rows, output_path)
         return Path(output_path)

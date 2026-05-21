@@ -17,7 +17,7 @@ class ExcelExporter:
         if not rows:
             return destination
 
-        df = DataFrame(rows, columns=["Archivo", "Numero", "Motor"])
+        df = DataFrame(rows, columns=["Archivo", "Numero", "Motor", "Free text"])
         df["Numero"] = to_numeric(df["Numero"], errors="coerce")
 
         df_grouped = df.copy()

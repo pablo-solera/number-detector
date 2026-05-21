@@ -48,3 +48,19 @@ class DetectionSettings:
     motor_max_h: int = 140
     motor_min_area: int = 250
     motor_roi_padding: int = 8
+
+    # Free text search (green labels)
+    free_text_green_h_min: int = 35
+    free_text_green_h_max: int = 90
+    free_text_green_s_min: int = 40
+    free_text_green_v_min: int = 40
+    free_text_min_y_pct: float = 0.18
+    free_text_max_x_pct: float = 0.58
+    free_text_dilate_kernel: tuple[int, int] = (9, 5)
+    free_text_dilate_iters: int = 2
+    free_text_min_w: int = 60
+    free_text_min_h: int = 15
+    free_text_max_w: int = 500
+    free_text_max_h: int = 180
+    free_text_min_area: int = 150
+    free_text_roi_padding: int = 8

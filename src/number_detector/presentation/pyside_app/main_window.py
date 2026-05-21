@@ -167,8 +167,8 @@ class MainWindow(QMainWindow):
         main.addWidget(g_res, 2)
         res_layout = QVBoxLayout(g_res)
 
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["Imagen", "Números", "Motores", "Error"])
+        self.table = QTableWidget(0, 5)
+        self.table.setHorizontalHeaderLabels(["Imagen", "Números", "Motores", "Free text", "Error"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -241,15 +241,16 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.last_excel_path)))
 
     # ---------- Table ----------
-    @Slot(str, str, str, str)
-    def on_result(self, image_name: str, parts_csv: str, motors_csv: str, error: str):
+    @Slot(str, str, str, str, str)
+    def on_result(self, image_name: str, parts_csv: str, motors_csv: str, free_text_csv: str, error: str):
         # Append row as results arrive (completion order may differ from file order)
         r = self.table.rowCount()
         self.table.insertRow(r)
         self.table.setItem(r, 0, QTableWidgetItem(image_name))
         self.table.setItem(r, 1, QTableWidgetItem(parts_csv))
         self.table.setItem(r, 2, QTableWidgetItem(motors_csv))
-        self.table.setItem(r, 3, QTableWidgetItem(error))
+        self.table.setItem(r, 3, QTableWidgetItem(free_text_csv))
+        self.table.setItem(r, 4, QTableWidgetItem(error))
 
     # ---------- Processing ----------
     @Slot()
