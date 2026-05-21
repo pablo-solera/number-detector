@@ -35,5 +35,16 @@ class DetectionSettings:
 
     # Motor search
     motor_region_pct: float = 0.90
-    motor_dilate_kernel: tuple[int, int] = (3, 3)
-    motor_dilate_iters: int = 1
+    motor_min_y_pct: float = 0.18
+    motor_blue_h_min: int = 90
+    motor_blue_h_max: int = 145
+    motor_blue_s_min: int = 40
+    motor_blue_v_min: int = 40
+    motor_dilate_kernel: tuple[int, int] = (9, 5)
+    motor_dilate_iters: int = 2
+    motor_min_w: int = 60
+    motor_min_h: int = 20
+    motor_max_w: int = 350
+    motor_max_h: int = 140
+    motor_min_area: int = 250
+    motor_roi_padding: int = 8

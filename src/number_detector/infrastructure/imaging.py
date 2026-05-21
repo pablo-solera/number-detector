@@ -53,6 +53,12 @@ class OpenCVRedDetector:
         mask = cv2.bitwise_or(mask_hsv, mask_rgb)
         return mask
 
+    def _build_blue_mask(self, bgr):
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        lower = np.array([self.s.motor_blue_h_min, self.s.motor_blue_s_min, self.s.motor_blue_v_min])
+        upper = np.array([self.s.motor_blue_h_max, 255, 255])
+        return cv2.inRange(hsv, lower, upper)
+
     def _remove_line_components(self, mask: np.ndarray) -> np.ndarray:
         """Remove thin/long leader lines so they don't merge with digits after dilation."""
         n, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
@@ -133,35 +139,40 @@ class OpenCVRedDetector:
         return regions
 
     def find_motor_bboxes(self, bgr, name: str = "") -> list[tuple[BoundingBox, np.ndarray]]:
-        """Return motor candidate regions as (bbox_in_full_image, roi_bgr)."""
+        """Return blue motor candidate regions as (bbox_in_full_image, roi_bgr)."""
         H, W = bgr.shape[:2]
         top_h = int(H * self.s.motor_region_pct)
         top = bgr[:top_h, :]
 
-        mask = self._build_red_mask(top)
+        mask = self._build_blue_mask(top)
         k = cv2.getStructuringElement(cv2.MORPH_RECT, self.s.motor_dilate_kernel)
         dil = cv2.dilate(mask, k, iterations=self.s.motor_dilate_iters)
 
         if name:
             self._save(f"{name}_motor_top.png", top)
-            self._save(f"{name}_motor_red_mask.png", mask)
-            self._save(f"{name}_motor_red_dilated.png", dil)
+            self._save(f"{name}_motor_blue_mask.png", mask)
+            self._save(f"{name}_motor_blue_dilated.png", dil)
 
         n, _, stats, _ = cv2.connectedComponentsWithStats(dil, connectivity=8)
 
         out: list[tuple[BoundingBox, np.ndarray]] = []
         for i in range(1, n):
             x, y, w, h, area = stats[i]
-            if area < 120 or w < 40 or h < 10:
+            if y < int(H * self.s.motor_min_y_pct):
                 continue
-            # discard thin long lines
-            if (w / max(h, 1)) > 25.0 and h <= 8:
+            if area < self.s.motor_min_area:
+                continue
+            if w < self.s.motor_min_w or h < self.s.motor_min_h:
+                continue
+            if w > self.s.motor_max_w or h > self.s.motor_max_h:
+                continue
+            if (w / max(h, 1)) > 8.0:
                 continue
 
             # create bbox in full-image coordinates
             bb = BoundingBox(int(x), int(y), int(w), int(h))
 
-            pad = 10
+            pad = self.s.motor_roi_padding
             x1 = max(int(x) - pad, 0)
             y1 = max(int(y) - pad, 0)
             x2 = min(int(x + w) + pad, top.shape[1])
