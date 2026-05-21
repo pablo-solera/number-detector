@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "number-detector"
+version = "2.0.0"
+description = "Detector de numeros rojos en imagenes"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python==4.13.0.90",
+    "numpy==2.4.2",
+    "pytesseract==0.3.13",
+    "pandas==3.0.0",
+    "openpyxl==3.1.5",
+    "xlsxwriter==3.2.9",
+    "pyside6==6.10.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.0.2",
+]
+
+[project.scripts]
+number-detector = "number_detector.presentation.pyside_app.main:run_pyside6_ui"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
