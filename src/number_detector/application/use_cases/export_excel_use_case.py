@@ -22,15 +22,17 @@ class ExportExcelUseCase:
                         r.image_name,
                         n,
                         "".join(r.motor_codes) if r.motor_codes else "",
+                        " | ".join(r.body_text) if r.body_text else "",
                         " | ".join(r.free_text) if r.free_text else "",
                     ])
             else:
                 # still export metadata if no numbers
-                if r.motor_codes or r.free_text:
+                if r.motor_codes or r.body_text or r.free_text:
                     rows.append([
                         r.image_name,
                         "",
                         "".join(r.motor_codes) if r.motor_codes else "",
+                        " | ".join(r.body_text) if r.body_text else "",
                         " | ".join(r.free_text) if r.free_text else "",
                     ])
 

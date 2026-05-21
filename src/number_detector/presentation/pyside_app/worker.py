@@ -13,7 +13,7 @@ from number_detector.infrastructure.bootstrap import create_process_folder_use_c
 class FolderScanWorker(QThread):
     sig_started = Signal(int)  # total
     sig_progress = Signal(int, int, str)  # done, total, filename
-    sig_result = Signal(str, str, str, str, str)  # image_name, parts_csv, motors_csv, free_text_csv, error
+    sig_result = Signal(str, str, str, str, str, str)
     sig_log = Signal(str)
     sig_finished = Signal(str)  # excel path
     sig_error = Signal(str)
@@ -58,9 +58,10 @@ class FolderScanWorker(QThread):
                 # Update UI table incrementally
                 parts_csv = ",".join(str(x) for x in res.part_numbers)
                 motors_csv = ",".join(res.motor_codes)
+                body_text_csv = " | ".join(res.body_text)
                 free_text_csv = " | ".join(res.free_text)
                 err = res.error or ""
-                self.sig_result.emit(res.image_name, parts_csv, motors_csv, free_text_csv, err)
+                self.sig_result.emit(res.image_name, parts_csv, motors_csv, body_text_csv, free_text_csv, err)
 
             _results, excel_path = uc.execute(
                 input_dir=self.input_dir,

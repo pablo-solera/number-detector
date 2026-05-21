@@ -27,7 +27,14 @@ class ScanSingleImageUseCase:
         p = Path(image_path)
         img = self.image_reader.read(p)
         if img is None:
-            return DetectionResult(image_name=p.stem, part_numbers=[], motor_codes=[], free_text=[], error="No se pudo abrir")
+            return DetectionResult(
+                image_name=p.stem,
+                part_numbers=[],
+                motor_codes=[],
+                free_text=[],
+                body_text=[],
+                error="No se pudo abrir",
+            )
 
         parts: list[int] = []
         for region in self.detector.find_part_regions(img, name=p.stem):
@@ -50,10 +57,16 @@ class ScanSingleImageUseCase:
             txt = self.ocr.read_free_text(region.image)
             free_text.extend(extract_free_texts(txt))
 
+        body_text: list[str] = []
+        for region in self.detector.find_body_text_regions(img, name=p.stem):
+            txt = self.ocr.read_body_text(region.image)
+            body_text.extend(extract_free_texts(txt))
+
         return DetectionResult(
             image_name=p.stem,
             part_numbers=sorted(set(parts)),
             motor_codes=sorted(set(motors)),
             free_text=sorted(set(free_text)),
+            body_text=sorted(set(body_text)),
             error=None,
         )

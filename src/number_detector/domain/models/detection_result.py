@@ -10,4 +10,5 @@ class DetectionResult:
     part_numbers: list[int]
     motor_codes: list[str]
     free_text: list[str] = field(default_factory=list)
+    body_text: list[str] = field(default_factory=list)
     error: Optional[str] = None

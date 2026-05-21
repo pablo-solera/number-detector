@@ -24,6 +24,9 @@ class OcrReader(Protocol):
     def read_free_text(self, image: Image) -> str:
         """Read general free text from an image region."""
 
+    def read_body_text(self, image: Image) -> str:
+        """Read body text from an image region."""
+
 
 class RedRegionDetector(Protocol):
     def find_part_regions(self, image: Image, name: str = "") -> list[ImageRegion]:
@@ -34,6 +37,9 @@ class RedRegionDetector(Protocol):
 
     def find_free_text_regions(self, image: Image, name: str = "") -> list[ImageRegion]:
         """Find green free-text regions to OCR."""
+
+    def find_body_text_regions(self, image: Image, name: str = "") -> list[ImageRegion]:
+        """Find pink body-text regions to OCR."""
 
 
 class ResultsExporter(Protocol):

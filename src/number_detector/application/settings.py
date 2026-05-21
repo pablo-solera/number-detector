@@ -64,3 +64,19 @@ class DetectionSettings:
     free_text_max_h: int = 180
     free_text_min_area: int = 150
     free_text_roi_padding: int = 8
+
+    # Body text search (pink/magenta labels)
+    body_text_red_green_delta: int = 35
+    body_text_blue_green_delta: int = 30
+    body_text_red_min: int = 120
+    body_text_blue_min: int = 100
+    body_text_red_blue_max_delta: int = 90
+    body_text_min_y_pct: float = 0.18
+    body_text_dilate_kernel: tuple[int, int] = (9, 5)
+    body_text_dilate_iters: int = 2
+    body_text_min_w: int = 40
+    body_text_min_h: int = 15
+    body_text_max_w: int = 600
+    body_text_max_h: int = 220
+    body_text_min_area: int = 150
+    body_text_roi_padding: int = 8

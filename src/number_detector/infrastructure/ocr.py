@@ -31,3 +31,7 @@ class TesseractService:
     def read_free_text(self, roi_bgr) -> str:
         th = self._prep(roi_bgr)
         return pytesseract.image_to_string(th, config=self.cfg_free_text).strip()
+
+    def read_body_text(self, roi_bgr) -> str:
+        th = self._prep(roi_bgr, scale=3.0)
+        return pytesseract.image_to_string(th, config=self.cfg_free_text).strip()
