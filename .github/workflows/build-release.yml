@@ -27,36 +27,40 @@ jobs:
           pip install -e .
           pip install pyinstaller
 
-      - name: Set EXE name based on tag
+      - name: Set version from pyproject
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "EXE_NAME=FolderComparator-$VERSION.exe" >> $GITHUB_ENV
+          $version = python -c "import tomllib; print('v' + tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])"
+          "VERSION=$version" >> $env:GITHUB_ENV
+          "EXE_NAME=DetectorNumeros-$version.exe" >> $env:GITHUB_ENV
 
       - name: Build EXE
         run: |
-          pyinstaller ^
-            --onefile ^
-            --noconsole ^
-            --windowed ^
-            --name FolderComparator-$VERSION ^
-            --icon=icon.ico ^
-            main.py
+          pyinstaller `
+            --onefile `
+            --noconsole `
+            --windowed `
+            --name "DetectorNumeros-${{ env.VERSION }}" `
+            --icon="img/icon.ico" `
+            "src/number_detector/__main__.py"
 
       - name: Generate Changelog
         id: changelog
         run: |
           git fetch --tags
-          LAST_TAG=$(git describe --tags --abbrev=0 ${GITHUB_REF}^)
-          LOG=$(git log $LAST_TAG..$GITHUB_REF --pretty=format:"- %s")
-          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
-          echo "$LOG" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          $lastTag = git describe --tags --abbrev=0 "${{ github.sha }}^" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            $log = git log "$lastTag..${{ github.sha }}" --pretty=format:"- %s"
+          } else {
+            $log = git log "${{ github.sha }}" --pretty=format:"- %s"
+          }
+          "CHANGELOG<<EOF" >> $env:GITHUB_ENV
+          $log >> $env:GITHUB_ENV
+          "EOF" >> $env:GITHUB_ENV
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ env.VERSION }}
+          name: ${{ env.VERSION }}
           body: ${{ env.CHANGELOG }}
-          files: dist/FolderComparator-$VERSION.exe
+          files: dist/${{ env.EXE_NAME }}
