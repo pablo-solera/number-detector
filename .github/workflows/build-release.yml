@@ -2,8 +2,8 @@ name: Build Windows EXE and Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,31 @@ jobs:
           "VERSION=$version" >> $env:GITHUB_ENV
           "EXE_NAME=DetectorNumeros-$version.exe" >> $env:GITHUB_ENV
 
+      - name: Generate Changelog
+        run: |
+          git fetch --tags
+          $lastTag = git tag --sort=-creatordate | Where-Object { $_ -ne "${{ env.VERSION }}" } | Select-Object -First 1
+          if ($lastTag) {
+            $log = git log "$lastTag..${{ github.sha }}" --pretty=format:"- %s"
+          } else {
+            $log = git log "${{ github.sha }}" --pretty=format:"- %s"
+          }
+          "CHANGELOG<<EOF" >> $env:GITHUB_ENV
+          $log >> $env:GITHUB_ENV
+          "EOF" >> $env:GITHUB_ENV
+
+      - name: Create version tag
+        run: |
+          git fetch --tags
+          if (git tag --list "${{ env.VERSION }}") {
+            throw "Tag ${{ env.VERSION }} already exists. Update project.version in pyproject.toml before releasing."
+          } else {
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "${{ env.VERSION }}"
+            git push origin "${{ env.VERSION }}"
+          }
+
       - name: Construir ejecutable con PyInstaller
         run: |
           pyinstaller `
@@ -48,32 +73,13 @@ jobs:
             --icon="img/icon.ico" `
             "src/number_detector/__main__.py"
 
-      - name: Verificar ejecutable generado
+      - name: Verify executable
         run: |
-          git fetch --tags
-          $lastTag = git describe --tags --abbrev=0 "${{ github.sha }}^" 2>$null
-          if ($LASTEXITCODE -eq 0) {
-            $log = git log "$lastTag..${{ github.sha }}" --pretty=format:"- %s"
-          } else {
-            $log = git log "${{ github.sha }}" --pretty=format:"- %s"
+          if (!(Test-Path "dist/${{ env.EXE_NAME }}")) {
+            throw "Executable not found: dist/${{ env.EXE_NAME }}"
           }
-          "CHANGELOG<<EOF" >> $env:GITHUB_ENV
-          $log >> $env:GITHUB_ENV
-          "EOF" >> $env:GITHUB_ENV
-
-      - name: Crear archivo ZIP
-        run: |
-          Compress-Archive -Path dist\DetectorNumeros.exe -DestinationPath DetectorNumeros-${{ github.ref_name }}.zip
-
-      - name: Subir artefacto
-        uses: actions/upload-artifact@v6
-        with:
-          name: DetectorNumeros-${{ github.ref_name }}
-          path: DetectorNumeros-${{ github.ref_name }}.zip
-          retention-days: 90  # Mantener artefactos por 90 días
 
       - name: Crear Release
-        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
