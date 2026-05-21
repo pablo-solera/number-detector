@@ -14,3 +14,7 @@ def test_extract_motor_codes_returns_unique_sorted_codes() -> None:
         "/ZKU-ZK02",
         "1.5/B38A15P",
     ]
+
+
+def test_extract_motor_codes_ignores_blue_motor_metadata() -> None:
+    assert extract_motor_codes("1.4/DGEA\nkw:110/Cv:150\nidVeic:1025397") == ["1.4/DGEA"]
