@@ -5,7 +5,6 @@ from pathlib import Path
 
 
 IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".bmp", ".tiff"]
-DEFAULT_OUTPUT_FILENAME = "numeros_rojos.xlsx"
 
 
 # Tesseract path (override with env var TESSERACT_CMD)

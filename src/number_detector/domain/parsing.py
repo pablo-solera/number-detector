@@ -30,11 +30,12 @@ def extract_motor_codes(text: str) -> list[str]:
       - X.X/XXXXX
       - /XXXXXXX
     """
-    t = normalize_motor_text(text)
-
     # Remove common noise tokens that appear close to engines
+    raw = (text or "").upper()
     for tok in ("KW:", "CV:", "IDVEIC", "IDVEIC:"):
-        t = t.replace(tok, "")
+        raw = raw.replace(tok, "\n")
+
+    t = normalize_motor_text(raw)
 
     patterns = [
 
@@ -67,4 +68,6 @@ def extract_motor_codes(text: str) -> list[str]:
 
     # Must contain at least one letter
     found = [m for m in found if re.search(r"[A-Z]", m)]
-    return sorted(set(found))
+
+    unique = sorted(set(found))
+    return [m for m in unique if not any(m != other and m in other for other in unique)]

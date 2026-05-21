@@ -12,7 +12,7 @@ class DetectionSettings:
     v_min: int = 150
 
     # OCR parsing constraints for part numbers
-    min_part_digits: int = 3
+    min_part_digits: int = 2
     max_part_digits: int = 6
 
     # Parallelism
@@ -30,6 +30,8 @@ class DetectionSettings:
     part_min_h: int = 18
     part_max_w: int = 120
     part_max_h: int = 70
+    part_merge_gap: int = 8
+    part_roi_padding: int = 2
 
     # Motor search
     motor_region_pct: float = 0.90

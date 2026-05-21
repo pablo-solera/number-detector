@@ -7,6 +7,12 @@ import numpy as np
 
 from number_detector.application.settings import DetectionSettings
 from number_detector.domain.models.bounding_box import BoundingBox
+from number_detector.domain.models.image_region import ImageRegion
+
+
+class OpenCVImageReader:
+    def read(self, image_path: str | Path):
+        return cv2.imread(str(image_path))
 
 
 class OpenCVRedDetector:
@@ -58,7 +64,33 @@ class OpenCVRedDetector:
                 clean[labels == i] = 0
         return clean
 
-    def find_part_bboxes(self, bgr, name: str = "") -> list[str]:
+    def _merge_part_bboxes(self, boxes: list[BoundingBox]) -> list[BoundingBox]:
+        merged: list[BoundingBox] = []
+        for bb in sorted(boxes, key=lambda box: (box.y, box.x)):
+            if not merged:
+                merged.append(bb)
+                continue
+
+            prev = merged[-1]
+            vertical_overlap = min(prev.y + prev.h, bb.y + bb.h) - max(prev.y, bb.y)
+            min_height = min(prev.h, bb.h)
+            gap = bb.x - (prev.x + prev.w)
+
+            if vertical_overlap >= min_height * 0.55 and gap <= self.s.part_merge_gap:
+                x1 = min(prev.x, bb.x)
+                y1 = min(prev.y, bb.y)
+                x2 = max(prev.x + prev.w, bb.x + bb.w)
+                y2 = max(prev.y + prev.h, bb.y + bb.h)
+                if x2 - x1 > self.s.part_max_w or y2 - y1 > self.s.part_max_h:
+                    merged.append(bb)
+                    continue
+                merged[-1] = BoundingBox(x1, y1, x2 - x1, y2 - y1)
+            else:
+                merged.append(bb)
+
+        return merged
+
+    def find_part_bboxes(self, bgr, name: str = "") -> list[BoundingBox]:
         mask = self._build_red_mask(bgr)
         mask = self._remove_line_components(mask)
 
@@ -84,8 +116,21 @@ class OpenCVRedDetector:
 
             out.append(BoundingBox(int(x), int(y), int(w), int(h)))
 
-        out.sort(key=lambda bb: (bb.y, bb.x))
-        return out
+        out = self._merge_part_bboxes(out)
+        return sorted(out, key=lambda bb: (bb.y, bb.x))
+
+    def find_part_regions(self, bgr, name: str = "") -> list[ImageRegion]:
+        regions: list[ImageRegion] = []
+        height, width = bgr.shape[:2]
+        for bb in self.find_part_bboxes(bgr, name=name):
+            pad = self.s.part_roi_padding
+            x1 = max(bb.x - pad, 0)
+            y1 = max(bb.y - pad, 0)
+            x2 = min(bb.x + bb.w + pad, width)
+            y2 = min(bb.y + bb.h + pad, height)
+            roi = bgr[y1:y2, x1:x2]
+            regions.append(ImageRegion(bbox=bb, image=roi))
+        return regions
 
     def find_motor_bboxes(self, bgr, name: str = "") -> list[tuple[BoundingBox, np.ndarray]]:
         """Return motor candidate regions as (bbox_in_full_image, roi_bgr)."""
@@ -126,3 +171,6 @@ class OpenCVRedDetector:
 
         out.sort(key=lambda t: (t[0].y, t[0].x))
         return out
+
+    def find_motor_regions(self, bgr, name: str = "") -> list[ImageRegion]:
+        return [ImageRegion(bbox=bb, image=roi) for bb, roi in self.find_motor_bboxes(bgr, name=name)]

@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pandas import DataFrame, ExcelWriter, to_numeric
 
 
 class ExcelExporter:
-    def __init__(self, output_path: str):
+    def __init__(self, output_path: str | None = None):
         self.output_path = output_path
 
-    def export(self, rows: list[list[object]]) -> None:
+    def export(self, rows: list[list[object]], output_path: str | Path | None = None) -> Path:
+        if output_path is None and self.output_path is None:
+            raise ValueError("output_path is required")
+        destination = Path(output_path or self.output_path)
+
         if not rows:
-            print("\nNo hay datos para exportar")
-            return
+            return destination
 
         df = DataFrame(rows, columns=["Archivo", "Numero", "Motor"])
         df["Numero"] = to_numeric(df["Numero"], errors="coerce")
@@ -20,13 +25,11 @@ class ExcelExporter:
         df_grouped.loc[~df_grouped["archivo_changed"], "Archivo"] = ""
         df_grouped = df_grouped.drop("archivo_changed", axis=1)
 
-        with ExcelWriter(self.output_path, engine="xlsxwriter") as writer:
+        with ExcelWriter(destination, engine="xlsxwriter") as writer:
             df_grouped.to_excel(writer, index=False, sheet_name="Numeros Rojos")
             workbook = writer.book
             worksheet = writer.sheets["Numeros Rojos"]
             number_format = workbook.add_format({"num_format": "0"})
             worksheet.set_column("B:B", 15, number_format)
 
-        print(f"\nResultados exportados a: {self.output_path}")
-        print(f"  Total de registros: {len(rows)}")
-        print(f"  Archivos procesados: {df['Archivo'].nunique()}")
+        return destination

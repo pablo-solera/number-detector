@@ -7,29 +7,25 @@ from typing import Callable, Optional
 
 from number_detector.application.settings import DetectionSettings
 from number_detector.application.use_cases.list_images_use_case import ListImagesUseCase
-from number_detector.application.use_cases.scan_single_image_use_case import ScanSingleImageUseCase
 from number_detector.domain.models.detection_result import DetectionResult
 
 ProgressCallback = Callable[[int, int, str], None]
 ResultCallback = Callable[[DetectionResult, int, int, str], None]
-
-
-def _worker_scan_one(image_path: str, settings_dict: dict, debug: bool, debug_dir: str | None) -> DetectionResult:
-    """
-    Worker top-level for multiprocessing (required on Windows).
-    It reconstructs settings + use case inside the process.
-    """
-
-    settings = DetectionSettings(**settings_dict)
-    uc = ScanSingleImageUseCase(settings=settings, debug=debug, debug_dir=debug_dir)
-    return uc.execute(image_path)
+ScanOne = Callable[[str, dict, bool, str | None], DetectionResult]
 
 
 class ScanImagesBatchUseCase:
     """Use case: scan many images using ProcessPoolExecutor (max performance)."""
 
-    def __init__(self, settings: DetectionSettings, debug: bool = False, debug_dir: str | None = None):
+    def __init__(
+        self,
+        settings: DetectionSettings,
+        scan_one: ScanOne,
+        debug: bool = False,
+        debug_dir: str | None = None,
+    ):
         self.settings = settings
+        self.scan_one = scan_one
         self.debug = debug
         self.debug_dir = debug_dir
 
@@ -55,7 +51,7 @@ class ScanImagesBatchUseCase:
 
         with ProcessPoolExecutor(max_workers=max(1, self.settings.workers)) as ex:
             fut_to_idx = {
-                ex.submit(_worker_scan_one, str(img_path), settings_dict, self.debug, self.debug_dir): idx
+                ex.submit(self.scan_one, str(img_path), settings_dict, self.debug, self.debug_dir): idx
                 for idx, img_path in enumerate(images)
             }
 

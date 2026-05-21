@@ -2,49 +2,47 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import cv2
-
+from number_detector.application.ports import ImageReader, OcrReader, RedRegionDetector
 from number_detector.application.settings import DetectionSettings
 from number_detector.domain.models.detection_result import DetectionResult
 from number_detector.domain.parsing import extract_motor_codes, extract_part_numbers
-from number_detector.infrastructure.imaging import OpenCVRedDetector
-from number_detector.infrastructure.ocr import TesseractService
-from number_detector.infrastructure.runtime import TESSERACT_CMD
 
 
 class ScanSingleImageUseCase:
     """Scan a single image and return detected red part numbers + motor codes."""
 
-    def __init__(self, settings: DetectionSettings = DetectionSettings, debug: bool = False,
-                 debug_dir: str | None = None):
-        self.settings = DetectionSettings
-        self.debug = debug
-        self.debug_dir = debug_dir
-
-        self.detector = OpenCVRedDetector(settings=settings, debug=debug, debug_dir=debug_dir)
-        self.ocr = TesseractService(tesseract_cmd=TESSERACT_CMD)
+    def __init__(
+        self,
+        image_reader: ImageReader,
+        detector: RedRegionDetector,
+        ocr: OcrReader,
+        settings: DetectionSettings | None = None,
+    ):
+        self.image_reader = image_reader
+        self.detector = detector
+        self.ocr = ocr
+        self.settings = settings or DetectionSettings()
 
     def execute(self, image_path: str | Path) -> DetectionResult:
         p = Path(image_path)
-        img = cv2.imread(str(p))
+        img = self.image_reader.read(p)
         if img is None:
             return DetectionResult(image_name=p.stem, part_numbers=[], motor_codes=[], error="No se pudo abrir")
 
         parts: list[int] = []
-        for bb in self.detector.find_part_bboxes(img, name=p.stem):
-            roi = img[bb.y: bb.y + bb.h, bb.x: bb.x + bb.w]
-            txt = self.ocr.read_digits(roi)
-            parts.extend(extract_part_numbers(txt))
-
-        parts: list[int] = []
-        for bb in self.detector.find_part_bboxes(img, name=p.stem):
-            roi = img[bb.y: bb.y + bb.h, bb.x: bb.x + bb.w]
-            txt = self.ocr.read_digits(roi)
-            parts.extend(extract_part_numbers(txt))
+        for region in self.detector.find_part_regions(img, name=p.stem):
+            txt = self.ocr.read_digits(region.image)
+            parts.extend(
+                extract_part_numbers(
+                    txt,
+                    min_digits=self.settings.min_part_digits,
+                    max_digits=self.settings.max_part_digits,
+                )
+            )
 
         motors: list[str] = []
-        for _bb, roi in self.detector.find_motor_bboxes(img, name=p.stem):
-            txt = self.ocr.read_text(roi)
+        for region in self.detector.find_motor_regions(img, name=p.stem):
+            txt = self.ocr.read_text(region.image)
             motors.extend(extract_motor_codes(txt))
 
         return DetectionResult(

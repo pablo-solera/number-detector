@@ -6,8 +6,8 @@ from PySide6.QtCore import QThread, Signal
 
 from number_detector.application.settings import DetectionSettings
 from number_detector.application.use_cases.list_images_use_case import ListImagesUseCase
-from number_detector.application.use_cases.process_folder_use_case import ProcessFolderUseCase
 from number_detector.domain.models.detection_result import DetectionResult
+from number_detector.infrastructure.bootstrap import create_process_folder_use_case
 
 
 class FolderScanWorker(QThread):
@@ -34,7 +34,7 @@ class FolderScanWorker(QThread):
         try:
             settings = DetectionSettings(s_min=self.s_min, v_min=self.v_min)
 
-            uc = ProcessFolderUseCase(
+            uc = create_process_folder_use_case(
                 settings=settings,
                 debug=self.debug,
                 debug_dir=str(self.output_dir / "_debug") if self.debug else None,
