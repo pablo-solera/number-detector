@@ -21,6 +21,9 @@ class OcrReader(Protocol):
     def read_text(self, image: Image) -> str:
         """Read free-form motor text from an image region."""
 
+    def read_motor_text(self, image: Image) -> str:
+        """Read the complete motor text block from an image region."""
+
     def read_free_text(self, image: Image) -> str:
         """Read general free text from an image region."""
 

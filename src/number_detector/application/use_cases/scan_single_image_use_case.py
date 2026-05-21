@@ -49,8 +49,9 @@ class ScanSingleImageUseCase:
 
         motors: list[str] = []
         for region in self.detector.find_motor_regions(img, name=p.stem):
-            txt = self.ocr.read_text(region.image)
-            motors.extend(extract_motor_codes(txt))
+            txt = self.ocr.read_motor_text(region.image)
+            if extract_motor_codes(txt):
+                motors.extend(extract_free_texts(txt))
 
         free_text: list[str] = []
         for region in self.detector.find_free_text_regions(img, name=p.stem):

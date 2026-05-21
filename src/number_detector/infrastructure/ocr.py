@@ -28,6 +28,10 @@ class TesseractService:
         th = self._prep(roi_bgr)
         return pytesseract.image_to_string(th, config=self.cfg_motor).strip()
 
+    def read_motor_text(self, roi_bgr) -> str:
+        th = self._prep(roi_bgr)
+        return pytesseract.image_to_string(th, config=self.cfg_free_text).strip()
+
     def read_free_text(self, roi_bgr) -> str:
         th = self._prep(roi_bgr)
         return pytesseract.image_to_string(th, config=self.cfg_free_text).strip()
