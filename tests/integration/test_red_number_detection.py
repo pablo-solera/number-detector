@@ -49,3 +49,11 @@ def test_detects_blue_motor_code_from_etka_sample() -> None:
 
     assert result.error is None
     assert "1.4/DGEA" in result.motor_codes
+
+
+@pytest.mark.skipif(not check_tesseract_installed(), reason="Tesseract is not available")
+def test_detects_green_free_text_from_etka_sample() -> None:
+    result = create_scan_single_image_use_case(DetectionSettings()).execute(Path("tests/fixtures/test1.jpg"))
+
+    assert result.error is None
+    assert "Plug-in Hybrid" in result.free_text

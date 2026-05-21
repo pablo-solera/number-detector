@@ -20,6 +20,9 @@ class FakeDetector:
     def find_motor_regions(self, image, name: str = ""):
         return [ImageRegion(BoundingBox(0, 1, 1, 1), "motor-1")]
 
+    def find_free_text_regions(self, image, name: str = ""):
+        return [ImageRegion(BoundingBox(0, 2, 1, 1), "free-text-1")]
+
 
 class FakeOcr:
     def read_digits(self, image) -> str:
@@ -27,6 +30,9 @@ class FakeOcr:
 
     def read_text(self, image) -> str:
         return "1.5/B38A15P"
+
+    def read_free_text(self, image) -> str:
+        return "Plug-in Hybrid"
 
 
 def test_scan_single_image_uses_injected_dependencies() -> None:
@@ -37,6 +43,7 @@ def test_scan_single_image_uses_injected_dependencies() -> None:
     assert result.image_name == "sample"
     assert result.part_numbers == [123, 4567]
     assert result.motor_codes == ["1.5/B38A15P"]
+    assert result.free_text == ["Plug-in Hybrid"]
     assert result.error is None
 
 
@@ -60,4 +67,5 @@ def test_scan_single_image_returns_error_when_image_cannot_be_read() -> None:
     assert result.image_name == "missing"
     assert result.part_numbers == []
     assert result.motor_codes == []
+    assert result.free_text == []
     assert result.error == "No se pudo abrir"
