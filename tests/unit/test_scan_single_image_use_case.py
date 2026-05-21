@@ -34,6 +34,9 @@ class FakeOcr:
     def read_text(self, image) -> str:
         return "1.5/B38A15P"
 
+    def read_motor_text(self, image) -> str:
+        return "1.5/B38A15P kw:110 idVeic:123"
+
     def read_free_text(self, image) -> str:
         return "Plug-in Hybrid"
 
@@ -48,7 +51,7 @@ def test_scan_single_image_uses_injected_dependencies() -> None:
 
     assert result.image_name == "sample"
     assert result.part_numbers == [123, 4567]
-    assert result.motor_codes == ["1.5/B38A15P"]
+    assert result.motor_codes == ["1.5/B38A15P kw:110 idVeic:123"]
     assert result.free_text == ["Plug-in Hybrid"]
     assert result.body_text == ["CD1 Berlina, 5 p. (4motion)"]
     assert result.error is None

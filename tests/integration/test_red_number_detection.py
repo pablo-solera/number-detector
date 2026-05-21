@@ -48,7 +48,9 @@ def test_detects_blue_motor_code_from_etka_sample() -> None:
     result = create_scan_single_image_use_case(DetectionSettings()).execute(Path("tests/fixtures/test1.jpg"))
 
     assert result.error is None
-    assert "1.4/DGEA" in result.motor_codes
+    assert any("1.4/DGEA" in text for text in result.motor_codes)
+    assert any("kw:110" in text for text in result.motor_codes)
+    assert any("idVeic" in text for text in result.motor_codes)
 
 
 @pytest.mark.skipif(not check_tesseract_installed(), reason="Tesseract is not available")
